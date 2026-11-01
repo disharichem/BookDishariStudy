@@ -1,0 +1,106 @@
+{
+  "entities": {
+    "Product": {
+      "title": "Product",
+      "description": "Educational chemistry book or PDF note available in the store",
+      "type": "object",
+      "properties": {
+        "sku": { "type": "string", "maxLength": 64 },
+        "titleBn": { "type": "string", "maxLength": 200 },
+        "titleEn": { "type": "string", "maxLength": 200 },
+        "subtitleBn": { "type": "string", "maxLength": 300 },
+        "format": { "type": "string", "enum": ["printed", "pdf", "combo"] },
+        "price": { "type": "number" },
+        "originalPrice": { "type": "number" },
+        "isSamplePrice": { "type": "boolean" },
+        "availabilityStatus": { "type": "string", "enum": ["in_stock", "low_stock", "out_of_stock", "pre_order"] },
+        "stockQuantity": { "type": "number" },
+        "author": { "type": "string", "maxLength": 200 },
+        "edition": { "type": "string", "maxLength": 100 },
+        "publisher": { "type": "string", "maxLength": 200 },
+        "description": { "type": "string", "maxLength": 2000 },
+        "coverImage": { "type": "string", "maxLength": 500 },
+        "fileDownloadUrlOrKey": { "type": "string", "maxLength": 500 },
+        "pdfFileRef": { "type": "string", "maxLength": 500 },
+        "pdfFileName": { "type": "string", "maxLength": 200 },
+        "pdfFileSizeMb": { "type": "number" },
+        "hasSecurePdf": { "type": "boolean" },
+        "isPublished": { "type": "boolean" },
+        "createdAt": { "type": "string" },
+        "updatedAt": { "type": "string" }
+      },
+      "required": ["sku", "titleBn", "format", "price", "isPublished"]
+    },
+    "Order": {
+      "title": "Order",
+      "description": "Customer purchase order for printed books and/or PDF notes with digital rights verification",
+      "type": "object",
+      "properties": {
+        "orderId": { "type": "string", "maxLength": 64 },
+        "customerId": { "type": "string", "maxLength": 128 },
+        "customerName": { "type": "string", "maxLength": 100 },
+        "customerPhone": { "type": "string", "maxLength": 20 },
+        "customerEmail": { "type": "string", "maxLength": 100 },
+        "orderType": { "type": "string", "enum": ["printed", "pdf", "mixed"] },
+        "items": { "type": "array" },
+        "subtotal": { "type": "number" },
+        "deliveryFee": { "type": "number" },
+        "total": { "type": "number" },
+        "deliveryZone": { "type": "string", "maxLength": 50 },
+        "deliveryAddress": { "type": "string", "maxLength": 500 },
+        "district": { "type": "string", "maxLength": 50 },
+        "paymentMethod": { "type": "string", "enum": ["cod", "bkash", "nagad"] },
+        "paymentStatus": { "type": "string", "enum": ["pending_verification", "verified", "failed", "refunded"] },
+        "orderStatus": { "type": "string", "enum": ["received", "processing", "shipped", "delivered", "cancelled"] },
+        "downloadPermission": { "type": "boolean" },
+        "downloadCount": { "type": "number" },
+        "downloadLimit": { "type": "number" },
+        "downloadHistory": { "type": "array" },
+        "transactionId": { "type": "string", "maxLength": 100 },
+        "senderPhone": { "type": "string", "maxLength": 20 },
+        "verifiedAt": { "type": "string" },
+        "verifiedBy": { "type": "string", "maxLength": 100 },
+        "isDemoSimulation": { "type": "boolean" },
+        "createdAt": { "type": "string" },
+        "updatedAt": { "type": "string" }
+      },
+      "required": [
+        "orderId",
+        "customerName",
+        "customerPhone",
+        "orderType",
+        "items",
+        "subtotal",
+        "total",
+        "paymentMethod",
+        "paymentStatus",
+        "orderStatus"
+      ]
+    },
+    "Admin": {
+      "title": "Admin",
+      "description": "Authorized administrator profile for store management",
+      "type": "object",
+      "properties": {
+        "email": { "type": "string", "maxLength": 100 },
+        "role": { "type": "string", "enum": ["admin", "superadmin"] },
+        "createdAt": { "type": "string" }
+      },
+      "required": ["email", "role"]
+    }
+  },
+  "firestore": {
+    "/products/{productId}": {
+      "schema": "Product",
+      "description": "Public catalog of educational chemistry books and notes with stock, price, and secure PDF references"
+    },
+    "/orders/{orderId}": {
+      "schema": "Order",
+      "description": "Customer orders stored persistently with validation, digital PDF licensing, and download permission"
+    },
+    "/admins/{adminId}": {
+      "schema": "Admin",
+      "description": "Admin access control list containing authorized manager emails and uids"
+    }
+  }
+}

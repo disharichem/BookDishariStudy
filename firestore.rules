@@ -1,0 +1,140 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // 1. Global Default Deny
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // Global Helpers
+    function isValidId(id) {
+      return id is string && id.size() > 0 && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    // Admin authorization check: checks admin document in /admins or verified email of store owner
+    function isAdmin() {
+      return isSignedIn() && (
+        exists(/databases/$(database)/documents/admins/$(request.auth.uid)) ||
+        (request.auth.token.email == 'disharichem@gmail.com' && request.auth.token.email_verified == true)
+      );
+    }
+
+    // Product Schema Validation
+    function isValidProduct(data) {
+      return data.keys().hasAll(['sku', 'titleBn', 'format', 'price', 'isPublished']) &&
+        data.sku is string && data.sku.size() <= 64 &&
+        data.titleBn is string && data.titleBn.size() <= 200 &&
+        data.format in ['printed', 'pdf', 'combo'] &&
+        data.price is number && data.price >= 0 &&
+        data.isPublished is bool &&
+        (!('stockQuantity' in data) || data.stockQuantity is number) &&
+        (!('description' in data) || (data.description is string && data.description.size() <= 2000)) &&
+        (!('coverImage' in data) || (data.coverImage is string && data.coverImage.size() <= 500)) &&
+        (!('fileDownloadUrlOrKey' in data) || (data.fileDownloadUrlOrKey is string && data.fileDownloadUrlOrKey.size() <= 500)) &&
+        (!('pdfFileRef' in data) || (data.pdfFileRef is string && data.pdfFileRef.size() <= 500)) &&
+        (!('pdfFileName' in data) || (data.pdfFileName is string && data.pdfFileName.size() <= 200)) &&
+        (!('pdfFileSizeMb' in data) || data.pdfFileSizeMb is number) &&
+        (!('hasSecurePdf' in data) || data.hasSecurePdf is bool);
+    }
+
+    // Order Schema Validation (Strict bounds on all fields to prevent denial of wallet)
+    function isValidOrder(data) {
+      return data.keys().hasAll([
+          'orderId', 'customerName', 'customerPhone', 'orderType',
+          'items', 'subtotal', 'total', 'paymentMethod', 'paymentStatus', 'orderStatus'
+        ]) &&
+        data.orderId is string && data.orderId.size() <= 64 &&
+        data.customerName is string && data.customerName.size() <= 100 &&
+        data.customerPhone is string && data.customerPhone.size() <= 20 &&
+        data.orderType in ['printed', 'pdf', 'mixed'] &&
+        data.items is list && data.items.size() > 0 && data.items.size() <= 50 &&
+        data.subtotal is number && data.subtotal >= 0 &&
+        data.total is number && data.total >= 0 &&
+        data.paymentMethod in ['cod', 'bkash', 'nagad'] &&
+        data.paymentStatus in ['pending_verification', 'verified', 'failed', 'refunded'] &&
+        data.orderStatus in ['received', 'processing', 'shipped', 'delivered', 'cancelled'] &&
+        (!('customerId' in data) || (data.customerId is string && data.customerId.size() <= 128)) &&
+        (!('downloadPermission' in data) || data.downloadPermission is bool) &&
+        (!('downloadCount' in data) || data.downloadCount is number) &&
+        (!('downloadLimit' in data) || data.downloadLimit is number) &&
+        (!('downloadHistory' in data) || data.downloadHistory is list) &&
+        (!('deliveryFee' in data) || data.deliveryFee is number) &&
+        (!('customerEmail' in data) || (data.customerEmail is string && data.customerEmail.size() <= 100)) &&
+        (!('deliveryAddress' in data) || (data.deliveryAddress is string && data.deliveryAddress.size() <= 500)) &&
+        (!('district' in data) || (data.district is string && data.district.size() <= 50)) &&
+        (!('transactionId' in data) || (data.transactionId is string && data.transactionId.size() <= 100)) &&
+        (!('senderPhone' in data) || (data.senderPhone is string && data.senderPhone.size() <= 20)) &&
+        (!('verifiedAt' in data) || (data.verifiedAt is string && data.verifiedAt.size() <= 100)) &&
+        (!('verifiedBy' in data) || (data.verifiedBy is string && data.verifiedBy.size() <= 100)) &&
+        (!('isDemoSimulation' in data) || data.isDemoSimulation is bool);
+    }
+
+    // Admin Profiles Collection
+    match /admins/{adminId} {
+      allow get: if isSignedIn() && (request.auth.uid == adminId || isAdmin());
+      allow list: if isAdmin();
+      // Allow bootstrap write if authenticated user is the designated owner email or already admin
+      allow create, update: if isAdmin() || (
+        isSignedIn() &&
+        request.auth.uid == adminId &&
+        request.auth.token.email == 'disharichem@gmail.com' &&
+        request.auth.token.email_verified == true
+      );
+      allow delete: if isAdmin() && request.auth.token.email == 'disharichem@gmail.com';
+    }
+
+    // Products Collection
+    match /products/{productId} {
+      // Public can read products for storefront display
+      allow get: if isValidId(productId);
+      allow list: if true;
+      // Only authorized admins may create, modify, or delete products
+      allow create: if isAdmin() && isValidId(productId) && isValidProduct(incoming());
+      allow update: if isAdmin() && isValidId(productId) && isValidProduct(incoming());
+      allow delete: if isAdmin() && isValidId(productId);
+    }
+
+    // Orders Collection
+    match /orders/{orderId} {
+      // Security Pillar 8 & 6: Never allow public blanket listing of customer orders
+      // Only admins or the authenticated customer owning the order can query orders
+      allow list: if isAdmin() || (isSignedIn() && resource.data.customerId == request.auth.uid);
+
+      // Customers can get their specific order if they know the exact valid order ID or own it
+      allow get: if isValidId(orderId) && (
+        isAdmin() ||
+        (isSignedIn() && resource.data.customerId == request.auth.uid) ||
+        resource.data.orderId == orderId
+      );
+
+      // Any customer can create a legitimate order with initial 'received' and 'pending_verification' status
+      // Customers CANNOT grant themselves downloadPermission on creation!
+      allow create: if isValidId(orderId) &&
+        isValidOrder(incoming()) &&
+        incoming().orderId == orderId &&
+        incoming().orderStatus == 'received' &&
+        incoming().paymentStatus == 'pending_verification' &&
+        (!('downloadPermission' in incoming()) || incoming().downloadPermission == false);
+
+      // Only administrators can update order status (e.g. mark as shipped, verified, grant downloadPermission) or delete orders
+      // Customers cannot change payment status or order status!
+      allow update: if isAdmin() && isValidId(orderId) && isValidOrder(incoming());
+      allow delete: if isAdmin() && isValidId(orderId);
+    }
+
+  }
+}

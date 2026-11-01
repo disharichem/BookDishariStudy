@@ -1,0 +1,22 @@
+rules_version = '2';
+
+service firebase.storage {
+  match /b/{bucket}/o {
+    // 1. Global Default Deny - Never allow public read/write
+    match /{allPaths=**} {
+      allow read, write: if false;
+    }
+
+    // 2. Private PDF Books Storage
+    // PDF files are strictly private. Direct public downloads via storage tokens are forbidden.
+    // Only verified store administrators can upload, replace, or manage PDF files.
+    // Customers receive authorized downloads through server-side verification.
+    match /private_pdfs/{productId}/{fileName} {
+      allow read: if false;
+      allow write: if request.auth != null && (
+        request.auth.token.email == 'disharichem@gmail.com' &&
+        request.auth.token.email_verified == true
+      );
+    }
+  }
+}
