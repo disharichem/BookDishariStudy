@@ -182,7 +182,7 @@ export const WishlistDrawer: React.FC<WishlistDrawerProps> = ({
                       )}
                       {commissionPercent !== null && (
                         <span className="text-[10px] font-bold text-emerald-800 bg-emerald-50 border border-emerald-300 px-1 py-0.2 rounded">
-                          {toBengaliNumber(commissionPercent)}% কমিশন
+                          {toBengaliNumber(commissionPercent)}%
                         </span>
                       )}
                     </div>

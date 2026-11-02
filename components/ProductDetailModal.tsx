@@ -15,12 +15,16 @@ import {
   Sparkles,
   ShieldCheck,
   ChevronRight,
-  ChevronLeft
+  ChevronLeft,
+  GraduationCap,
+  CheckCircle2,
+  Award
 } from 'lucide-react';
+import { DEFAULT_CHEMISTRY_INSTRUCTOR } from '@/data/products';
 
 interface ProductDetailModalProps {
   product: Product | null;
-  initialTab?: 'overview' | 'toc' | 'sample';
+  initialTab?: 'overview' | 'toc' | 'sample' | 'author';
   onClose: () => void;
   onDirectOrder: (product: Product) => void;
   onAddToCart: (product: Product) => void;
@@ -35,13 +39,14 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
   onAddToCart,
   onOpenSampleModal,
 }) => {
-  const [activeTab, setActiveTab] = useState<'overview' | 'toc' | 'sample'>(initialTab);
+  const [activeTab, setActiveTab] = useState<'overview' | 'toc' | 'sample' | 'author'>(initialTab);
   const [selectedSampleIndex, setSelectedSampleIndex] = useState(0);
 
   if (!product) return null;
 
   const isPdf = product.format === 'pdf';
   const isCombo = product.format === 'combo';
+  const authorData = product.authorInfo || DEFAULT_CHEMISTRY_INSTRUCTOR;
 
   return (
     <div className="fixed inset-0 z-50 overflow-y-auto bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-3 sm:p-4 md:p-6 animate-in fade-in duration-150">
@@ -138,7 +143,7 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
             </div>
 
             {/* Book Title & Key Specs */}
-            <div className="md:col-span-8 space-y-4">
+            <div className="md:col-span-8 space-y-3.5">
               <div className="space-y-1">
                 <div className="flex items-center gap-2 text-xs text-slate-500">
                   <span className="font-mono text-cyan-800 font-semibold">{product.sku || 'DC-SAMPLE'}</span>
@@ -158,6 +163,64 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
                   {product.subtitleBn}
                 </p>
               </div>
+
+              {/* Author Information Card (Profile Image, Role, Badges, and Short Bio) */}
+              {authorData && (
+                <div className="p-3 bg-gradient-to-r from-slate-50 via-cyan-50/50 to-slate-50 rounded-xl border border-slate-200 shadow-2xs space-y-2">
+                  <div className="flex items-start gap-3">
+                    <div className="relative w-12 h-12 rounded-full overflow-hidden shrink-0 border-2 border-white shadow-xs bg-slate-100 ring-2 ring-cyan-600/30">
+                      <Image
+                        src={authorData.image}
+                        alt={authorData.name}
+                        fill
+                        sizes="48px"
+                        referrerPolicy="no-referrer"
+                        className="object-cover"
+                      />
+                    </div>
+                    <div className="min-w-0 flex-1 space-y-1">
+                      <div className="flex flex-wrap items-center justify-between gap-1.5">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <span className="text-xs sm:text-sm font-bold text-slate-900">
+                            {authorData.name}
+                          </span>
+                          <span className="text-[10px] font-semibold text-cyan-800 bg-cyan-100/70 border border-cyan-200 px-2 py-0.5 rounded-full flex items-center gap-1">
+                            <GraduationCap className="w-3 h-3 text-cyan-700" />
+                            <span>ইন্সট্রাক্টর ও লেখক</span>
+                          </span>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => setActiveTab('author')}
+                          className="text-[11px] text-cyan-800 hover:text-cyan-950 font-semibold underline underline-offset-2 cursor-pointer transition-colors"
+                        >
+                          পরিচিতি দেখুন ❯
+                        </button>
+                      </div>
+
+                      {/* Short Bio for the chemistry instructor behind the notes */}
+                      <p className="text-[11px] sm:text-xs text-slate-600 line-clamp-2 leading-relaxed">
+                        {authorData.bio}
+                      </p>
+
+                      <div className="flex items-center flex-wrap gap-2 text-[10px] text-slate-500">
+                        {authorData.institution && (
+                          <span className="text-cyan-900 font-medium">🎓 {authorData.institution}</span>
+                        )}
+                        {authorData.experience && (
+                          <>
+                            <span className="text-slate-300">·</span>
+                            <span className="text-emerald-700 font-semibold flex items-center gap-1">
+                              <CheckCircle2 className="w-3 h-3 text-emerald-600" />
+                              {authorData.experience}
+                            </span>
+                          </>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
 
               {/* Price Block */}
               <div className="p-3.5 bg-slate-50 rounded-xl border border-slate-200 flex items-center justify-between">
@@ -187,9 +250,21 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
 
               {/* Specification Grid */}
               <div className="grid grid-cols-2 gap-2 text-xs">
-                <div className="p-2.5 rounded-lg bg-slate-50 border border-slate-100">
-                  <span className="text-slate-400 block">লেখক / সংকলক</span>
-                  <span className="font-medium text-slate-800">{product.author || '[তথ্য শীঘ্রই যুক্ত হবে]'}</span>
+                <div className="p-2.5 rounded-lg bg-slate-50 border border-slate-100 flex items-center gap-2">
+                  <div className="relative w-7 h-7 rounded-full overflow-hidden shrink-0 border border-slate-200">
+                    <Image
+                      src={authorData?.image || '/images/instructor_al_mehedi.jpg'}
+                      alt={authorData?.name || 'Instructor'}
+                      fill
+                      sizes="28px"
+                      referrerPolicy="no-referrer"
+                      className="object-cover"
+                    />
+                  </div>
+                  <div className="min-w-0">
+                    <span className="text-slate-400 block text-[10px]">লেখক ও সংকলক</span>
+                    <span className="font-medium text-slate-800 truncate block">{authorData?.name || product.author || 'মোঃ আল মেহেদী'}</span>
+                  </div>
                 </div>
                 <div className="p-2.5 rounded-lg bg-slate-50 border border-slate-100">
                   <span className="text-slate-400 block">মোট পৃষ্ঠা</span>
@@ -274,6 +349,18 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
               >
                 <FileText className="w-3.5 h-3.5 text-cyan-600" />
                 <span>নমুনা পাতা প্রিভিউ</span>
+              </button>
+
+              <button
+                onClick={() => setActiveTab('author')}
+                className={`pb-3 text-xs sm:text-sm font-semibold border-b-2 transition-all cursor-pointer flex items-center gap-1.5 ${
+                  activeTab === 'author'
+                    ? 'border-slate-900 text-slate-900'
+                    : 'border-transparent text-slate-500 hover:text-slate-800'
+                }`}
+              >
+                <GraduationCap className="w-3.5 h-3.5 text-cyan-600" />
+                <span>লেখক ও ইন্সট্রাক্টর</span>
               </button>
             </div>
 
@@ -421,6 +508,76 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
                     বইটি সংগ্রহ করলে মূল বাঁধাইকৃত কপি অথবা ফুল রেজোলিউশন পিডিএফে সকল চিত্র ও ব্যাখ্যা পাবেন।
                   </p>
 
+                </div>
+              </div>
+            )}
+
+            {/* Tab 4: Author & Instructor Profile */}
+            {activeTab === 'author' && authorData && (
+              <div className="pt-4 space-y-4 animate-in fade-in duration-200">
+                <div className="p-4 sm:p-5 rounded-2xl bg-gradient-to-br from-slate-900 to-slate-800 text-white shadow-md relative overflow-hidden">
+                  <div className="flex flex-col sm:flex-row items-center sm:items-start gap-4 sm:gap-5 text-center sm:text-left">
+                    <div className="relative w-20 h-20 sm:w-24 sm:h-24 rounded-full overflow-hidden shrink-0 border-2 border-cyan-400 shadow-lg ring-4 ring-cyan-500/20 bg-slate-800">
+                      <Image
+                        src={authorData.image}
+                        alt={authorData.name}
+                        fill
+                        sizes="96px"
+                        referrerPolicy="no-referrer"
+                        className="object-cover"
+                      />
+                    </div>
+
+                    <div className="space-y-2 flex-1">
+                      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1">
+                        <div>
+                          <h4 className="text-base sm:text-lg font-bold text-white">
+                            {authorData.name}
+                          </h4>
+                          <p className="text-xs text-cyan-300 font-medium">
+                            {authorData.role}
+                          </p>
+                        </div>
+                        {authorData.experience && (
+                          <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-emerald-300 bg-emerald-950/60 border border-emerald-500/30 px-2.5 py-1 rounded-full self-center sm:self-auto">
+                            <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
+                            {authorData.experience}
+                          </span>
+                        )}
+                      </div>
+
+                      {authorData.institution && (
+                        <p className="text-xs text-slate-300 flex items-center justify-center sm:justify-start gap-1.5">
+                          <GraduationCap className="w-3.5 h-3.5 text-cyan-400 shrink-0" />
+                          <span>{authorData.institution}</span>
+                        </p>
+                      )}
+
+                      <p className="text-xs sm:text-sm text-slate-300 leading-relaxed pt-1">
+                        {authorData.bio}
+                      </p>
+
+                      {authorData.badges && authorData.badges.length > 0 && (
+                        <div className="flex flex-wrap items-center justify-center sm:justify-start gap-1.5 pt-1.5">
+                          {authorData.badges.map((b, i) => (
+                            <span
+                              key={i}
+                              className="text-[10px] font-medium bg-slate-800/90 text-cyan-200 border border-cyan-500/30 px-2 py-0.5 rounded-md"
+                            >
+                              ★ {b}
+                            </span>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </div>
+
+                <div className="p-3.5 bg-cyan-50/70 border border-cyan-200 rounded-xl flex items-center gap-2.5 text-xs text-cyan-950">
+                  <Award className="w-4 h-4 text-cyan-700 shrink-0" />
+                  <span>
+                    এই নোট ও বইয়ের প্রতিটি অধ্যায় এসএসসি বিজ্ঞান পরীক্ষার্থীদের জন্য বিশেষ ফ্লোচার্ট ও সমীকরণ ট্রিকস দিয়ে সাজানো হয়েছে।
+                  </span>
                 </div>
               </div>
             )}

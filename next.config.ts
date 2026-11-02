@@ -19,8 +19,22 @@ const nextConfig: NextConfig = {
       },
     ],
   },
+  serverExternalPackages: [
+    'firebase',
+    '@firebase/app',
+    '@firebase/auth',
+    '@firebase/firestore',
+    '@firebase/storage',
+    '@firebase/util',
+    '@firebase/component',
+    '@firebase/logger',
+  ],
   transpilePackages: ['motion'],
-  webpack: (config, {dev}) => {
+  webpack: (config, { dev, isServer }) => {
+    // Disable server-side vendor chunk splitting which breaks scoped packages (@firebase, @opentelemetry)
+    if (isServer) {
+      config.optimization.splitChunks = false;
+    }
     // HMR is disabled in AI Studio via DISABLE_HMR env var.
     // Do not modify—file watching is disabled to prevent flickering during agent edits.
     if (dev && process.env.DISABLE_HMR === 'true') {

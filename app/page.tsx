@@ -8,7 +8,6 @@ import { testFirestoreConnection, db } from '@/lib/firebase';
 import { collection, onSnapshot } from 'firebase/firestore';
 import { Navbar } from '@/components/Navbar';
 import { Hero } from '@/components/Hero';
-import { ProductCategories } from '@/components/ProductCategories';
 import { BookCatalog } from '@/components/BookCatalog';
 import { ProductDetailPageView } from '@/components/ProductDetailPageView';
 import { SampleReaderModal } from '@/components/SampleReaderModal';
@@ -25,6 +24,12 @@ import { ContactUs } from '@/components/ContactUs';
 import { StudentReviews } from '@/components/StudentReviews';
 import { Footer } from '@/components/Footer';
 import { FloatingSupport } from '@/components/FloatingSupport';
+import { PriceAlertToast } from '@/components/PriceAlertToast';
+import { RecentlyViewed } from '@/components/RecentlyViewed';
+import { addRecentlyViewed } from '@/lib/recentlyViewed';
+import { useCart } from '@/lib/cartStore';
+import { useWishlist } from '@/lib/wishlistStore';
+import { useRecentOrders } from '@/lib/recentOrders';
 import { Check, CheckCircle2 } from 'lucide-react';
 
 export default function HomePage() {
@@ -32,8 +37,27 @@ export default function HomePage() {
   const [products, setProducts] = useState<Product[]>(PRODUCTS);
   const [activeCategory, setActiveCategory] = useState<'all' | 'printed' | 'pdf' | 'combo'>('all');
   const [selectedBranch, setSelectedBranch] = useState<ChemistryBranch>('all');
-  const [cartItems, setCartItems] = useState<CartItem[]>([]);
-  const [wishlistIds, setWishlistIds] = useState<string[]>([]);
+  
+  // Persistent shopping cart & wishlist stores (synced across tabs & pages via localStorage)
+  const {
+    cartItems,
+    totalCartCount,
+    addToCart,
+    directOrder,
+    updateQuantity,
+    removeFromCart,
+    clearCart,
+    addAllFromWishlist,
+  } = useCart(products);
+
+  const {
+    wishlistIds,
+    wishlistedProducts,
+    toggleWishlist,
+    removeFromWishlist,
+    clearWishlist,
+  } = useWishlist(products);
+
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
   const [sampleProduct, setSampleProduct] = useState<Product | null>(null);
   const [isCartOpen, setIsCartOpen] = useState(false);
@@ -43,21 +67,25 @@ export default function HomePage() {
   const [isMyPdfsOpen, setIsMyPdfsOpen] = useState(false);
   const [isAdminOpen, setIsAdminOpen] = useState(false);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
-  const [recentOrders, setRecentOrders] = useState<CompletedOrder[]>([]);
+  const { recentOrders, addRecentOrder } = useRecentOrders();
 
   const handleOpenProduct = (product: Product) => {
+    addRecentlyViewed(product.id);
     router.push(`/products/${product.id}`);
   };
 
   const handleOpenProductById = (productId: string) => {
+    addRecentlyViewed(productId);
     router.push(`/products/${productId}`);
   };
 
   const handleOpenSampleModal = (product: Product) => {
+    addRecentlyViewed(product.id);
     setSampleProduct(product);
   };
 
   const handleOpenSampleModalById = (productId: string) => {
+    addRecentlyViewed(productId);
     const found = products.find((p) => p.id === productId);
     if (found) {
       setSampleProduct(found);
@@ -111,19 +139,6 @@ export default function HomePage() {
       console.warn('Firestore products listener fallback:', e);
     }
 
-    // Hydrate wishlist from localStorage asynchronously
-    const timer = setTimeout(() => {
-      try {
-        const stored = localStorage.getItem('dishari_wishlist_ids');
-        if (stored) {
-          setWishlistIds(JSON.parse(stored));
-        }
-      } catch (e) {
-        console.warn('LocalStorage wishlist load error:', e);
-      }
-    }, 0);
-
-    return () => clearTimeout(timer);
   }, []);
 
   const showToast = (msg: string) => {
@@ -134,117 +149,58 @@ export default function HomePage() {
   };
 
   const handleToggleWishlist = (product: Product) => {
-    setWishlistIds((prev) => {
-      let updated: string[];
-      if (prev.includes(product.id)) {
-        updated = prev.filter((id) => id !== product.id);
-        showToast(`"${product.titleBn}" উইশলিস্ট থেকে সরানো হয়েছে।`);
-      } else {
-        updated = [...prev, product.id];
-        showToast(`"${product.titleBn}" উইশলিস্টে যুক্ত করা হয়েছে! ❤️`);
-      }
-      try {
-        localStorage.setItem('dishari_wishlist_ids', JSON.stringify(updated));
-      } catch (e) {
-        console.warn('LocalStorage save error:', e);
-      }
-      return updated;
-    });
+    const isAdded = toggleWishlist(product);
+    if (isAdded) {
+      showToast(`"${product.titleBn}" উইশলিস্টে যুক্ত করা হয়েছে! ❤️`);
+    } else {
+      showToast(`"${product.titleBn}" উইশলিস্ট থেকে সরানো হয়েছে।`);
+    }
   };
 
   const handleRemoveFromWishlist = (productId: string) => {
-    setWishlistIds((prev) => {
-      const updated = prev.filter((id) => id !== productId);
-      try {
-        localStorage.setItem('dishari_wishlist_ids', JSON.stringify(updated));
-      } catch (e) {
-        console.warn('LocalStorage save error:', e);
-      }
-      return updated;
-    });
+    removeFromWishlist(productId);
     showToast('বইটি উইশলিস্ট থেকে সরানো হয়েছে।');
   };
 
   const handleMoveWishlistToCart = (product: Product) => {
-    handleAddToCart(product);
+    addToCart(product);
+    showToast(`"${product.titleBn}" ব্যাগে যুক্ত করা হয়েছে!`);
   };
 
   const handleAddAllWishlistToCart = () => {
-    const wishlistedProducts = products.filter((p) => wishlistIds.includes(p.id));
     if (wishlistedProducts.length === 0) return;
-    setCartItems((prev) => {
-      const updated = [...prev];
-      wishlistedProducts.forEach((p) => {
-        const existing = updated.find((item) => item.product.id === p.id);
-        if (existing) {
-          existing.quantity += 1;
-        } else {
-          updated.push({ product: p, quantity: 1 });
-        }
-      });
-      return updated;
-    });
+    addAllFromWishlist(wishlistedProducts);
     showToast(`${wishlistedProducts.length}টি বই ব্যাগে যোগ করা হয়েছে!`);
     setIsWishlistOpen(false);
     setIsCartOpen(true);
   };
 
   const handleClearWishlist = () => {
-    setWishlistIds([]);
-    try {
-      localStorage.removeItem('dishari_wishlist_ids');
-    } catch (e) {
-      console.warn('LocalStorage clear error:', e);
-    }
+    clearWishlist();
     showToast('উইশলিস্ট খালি করা হয়েছে।');
   };
 
   const handleAddToCart = (product: Product) => {
-    setCartItems((prev) => {
-      const existing = prev.find((item) => item.product.id === product.id);
-      if (existing) {
-        return prev.map((item) =>
-          item.product.id === product.id
-            ? { ...item, quantity: item.quantity + 1 }
-            : item
-        );
-      }
-      return [...prev, { product, quantity: 1 }];
-    });
+    addToCart(product);
     showToast(`"${product.titleBn}" ব্যাগে যুক্ত করা হয়েছে!`);
   };
 
   const handleDirectOrder = (product: Product) => {
-    // Add to cart if not present, then open checkout directly
-    setCartItems((prev) => {
-      const existing = prev.find((item) => item.product.id === product.id);
-      if (existing) {
-        return prev;
-      }
-      return [{ product, quantity: 1 }];
-    });
+    directOrder(product);
     setIsCheckoutOpen(true);
   };
 
   const handleUpdateQuantity = (productId: string, quantity: number) => {
-    if (quantity <= 0) {
-      handleRemoveItem(productId);
-      return;
-    }
-    setCartItems((prev) =>
-      prev.map((item) =>
-        item.product.id === productId ? { ...item, quantity } : item
-      )
-    );
+    updateQuantity(productId, quantity);
   };
 
   const handleRemoveItem = (productId: string) => {
-    setCartItems((prev) => prev.filter((item) => item.product.id !== productId));
+    removeFromCart(productId);
   };
 
   const handleOrderSuccess = (order: CompletedOrder) => {
-    setRecentOrders((prev) => [order, ...prev]);
-    setCartItems([]);
+    addRecentOrder(order);
+    clearCart();
     showToast(`অর্ডার সফল! অর্ডার কোড: ${order.orderId}`);
   };
 
@@ -260,8 +216,6 @@ export default function HomePage() {
     if (el) el.scrollIntoView({ behavior: 'smooth' });
   };
 
-  const totalCartCount = cartItems.reduce((sum, item) => sum + item.quantity, 0);
-
   return (
     <div className="min-h-screen flex flex-col bg-slate-50 text-slate-800">
       
@@ -272,6 +226,9 @@ export default function HomePage() {
           <span>{toastMessage}</span>
         </div>
       )}
+
+      {/* Reactive Price Change & Discount Toast Notification */}
+      <PriceAlertToast products={products} onOpenProduct={handleOpenProduct} />
 
       {/* Main Top Navigation */}
       <Navbar
@@ -321,13 +278,15 @@ export default function HomePage() {
               onOpenSample={handleOpenSampleModalById}
             />
 
-            {/* Product Categories: Organic, Inorganic, Physical Chemistry */}
-            <ProductCategories
-              selectedBranch={selectedBranch}
-              onSelectBranch={setSelectedBranch}
+            {/* Recently Viewed Books Section (tracks last 5 books stored in localStorage) */}
+            <RecentlyViewed
+              products={products}
+              onOpenProduct={handleOpenProduct}
+              onDirectOrder={handleDirectOrder}
+              onOpenSampleModal={handleOpenSampleModal}
             />
 
-            {/* Book Catalog Section with Filter, Branch Filter, and Search */}
+            {/* Book Catalog Section with Filter, Budget Filter, and Search */}
             <BookCatalog
               products={products}
               wishlistIds={wishlistIds}

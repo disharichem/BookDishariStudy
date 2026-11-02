@@ -55,8 +55,12 @@ import {
   Search,
   Copy,
   Filter,
+  BellRing,
+  Tag,
+  Percent,
 } from 'lucide-react';
 import { AdminUploadPDF } from './AdminUploadPDF';
+import { broadcastPriceAlert } from './PriceAlertToast';
 
 export { AdminUploadPDF };
 
@@ -257,6 +261,11 @@ export const AdminProductManagerModal: React.FC<AdminProductManagerModalProps> =
       description,
     };
 
+    const oldPrice = selectedProduct.price;
+    const oldOriginalPrice = selectedProduct.originalPrice;
+    const newPrice = Number(price);
+    const newOriginalPrice = Number(originalPrice) || undefined;
+
     // Save to Firestore products collection if authorized
     try {
       await setDoc(doc(db, 'products', updated.id), {
@@ -281,6 +290,30 @@ export const AdminProductManagerModal: React.FC<AdminProductManagerModalProps> =
       }, { merge: true });
     } catch (err) {
       console.warn('Firestore product sync note:', err);
+    }
+
+    // Broadcast toast notification if price or discount changed
+    if (oldPrice !== newPrice || oldOriginalPrice !== newOriginalPrice) {
+      const isDiscount = Boolean(newOriginalPrice && newOriginalPrice > newPrice);
+      const isDrop = newPrice < oldPrice;
+      const pct = (isDiscount && newOriginalPrice)
+        ? Math.round(((newOriginalPrice - newPrice) / newOriginalPrice) * 100)
+        : undefined;
+
+      broadcastPriceAlert({
+        productId: updated.id,
+        title: updated.titleBn,
+        oldPrice,
+        newPrice,
+        originalPrice: newOriginalPrice,
+        discountPercent: pct,
+        type: isDiscount ? 'new_discount' : isDrop ? 'price_drop' : 'price_change',
+        customMessage: isDiscount
+          ? `🎉 নতুন ডিসকাউন্ট যুক্ত হয়েছে! ৳${newOriginalPrice} এর বই এখন মাত্র ৳${newPrice} (${pct}% ছাড়)!`
+          : isDrop
+          ? `📉 দাম কমেছে! "${updated.titleBn}" এর মূল্য এখন মাত্র ৳${newPrice}!`
+          : `📢 মূল্য আপডেট: "${updated.titleBn}" এর নতুন মূল্য ৳${newPrice} নির্ধারণ করা হয়েছে।`,
+      });
     }
 
     onUpdateProduct(updated);
@@ -1372,7 +1405,7 @@ export const AdminProductManagerModal: React.FC<AdminProductManagerModalProps> =
                         />
                       </div>
 
-                      <div className="grid grid-cols-2 gap-3">
+                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                         <div className="space-y-1">
                           <label className="font-semibold text-slate-700 block">বিক্রয় মূল্য (৳) *</label>
                           <input
@@ -1380,6 +1413,17 @@ export const AdminProductManagerModal: React.FC<AdminProductManagerModalProps> =
                             required
                             value={price}
                             onChange={(e) => setPrice(Number(e.target.value))}
+                            className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-lg focus:outline-hidden focus:border-cyan-500"
+                          />
+                        </div>
+
+                        <div className="space-y-1">
+                          <label className="font-semibold text-slate-700 block">পূর্বের মূল্য / ছাড় রেফারেন্স (৳)</label>
+                          <input
+                            type="number"
+                            value={originalPrice || ''}
+                            placeholder="যেমন: 550"
+                            onChange={(e) => setOriginalPrice(Number(e.target.value))}
                             className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-lg focus:outline-hidden focus:border-cyan-500"
                           />
                         </div>
@@ -1490,8 +1534,20 @@ export const AdminProductManagerModal: React.FC<AdminProductManagerModalProps> =
                           </span>
                         </div>
                         <div className="p-3 bg-slate-50 rounded-lg border border-slate-100">
-                          <span className="text-slate-400 block text-[11px]">মূল্য</span>
-                          <span className="font-bold text-slate-900 tabular-nums">৳{selectedProduct.price}</span>
+                          <span className="text-slate-400 block text-[11px]">বিক্রয় মূল্য ও ডিসকাউন্ট</span>
+                          <div className="flex items-baseline gap-2">
+                            <span className="font-bold text-slate-900 tabular-nums text-sm">৳{selectedProduct.price}</span>
+                            {selectedProduct.originalPrice && selectedProduct.originalPrice > selectedProduct.price && (
+                              <>
+                                <span className="text-[11px] text-slate-400 line-through tabular-nums">
+                                  ৳{selectedProduct.originalPrice}
+                                </span>
+                                <span className="text-[10px] text-rose-600 bg-rose-50 px-1.5 py-0.5 rounded font-bold">
+                                  {Math.round(((selectedProduct.originalPrice - selectedProduct.price) / selectedProduct.originalPrice) * 100)}% ছাড়
+                                </span>
+                              </>
+                            )}
+                          </div>
                         </div>
                         <div className="p-3 bg-slate-50 rounded-lg border border-slate-100">
                           <span className="text-slate-400 block text-[11px]">ইনভেন্টরি স্টক</span>
@@ -1522,6 +1578,40 @@ export const AdminProductManagerModal: React.FC<AdminProductManagerModalProps> =
                       <div className="p-3 bg-slate-50 rounded-lg border border-slate-100 space-y-1">
                         <span className="text-slate-400 block text-[11px]">বিবরণ</span>
                         <p className="text-slate-600 leading-relaxed">{selectedProduct.description}</p>
+                      </div>
+
+                      <div className="p-3 bg-gradient-to-r from-cyan-50 to-amber-50 rounded-xl border border-cyan-200 flex flex-wrap items-center justify-between gap-2.5">
+                        <div className="flex items-center gap-2">
+                          <BellRing className="w-4 h-4 text-cyan-700 shrink-0" />
+                          <span className="text-xs text-slate-700 font-medium">
+                            শিক্ষার্থীদের জন্য মূল্যছাড় ও ডিসকাউন্ট নোটিফিকেশন পরীক্ষা করুন
+                          </span>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const disc = selectedProduct.originalPrice && selectedProduct.originalPrice > selectedProduct.price
+                              ? Math.round(((selectedProduct.originalPrice - selectedProduct.price) / selectedProduct.originalPrice) * 100)
+                              : 20;
+                            const origPrice = selectedProduct.originalPrice || Math.round(selectedProduct.price * 1.25);
+                            broadcastPriceAlert({
+                              productId: selectedProduct.id,
+                              title: selectedProduct.titleBn,
+                              oldPrice: origPrice,
+                              newPrice: selectedProduct.price,
+                              originalPrice: origPrice,
+                              discountPercent: disc,
+                              type: 'new_discount',
+                              customMessage: `🎉 বিশেষ অফার অ্যালার্ট! "${selectedProduct.titleBn}" এখন মাত্র ৳${selectedProduct.price}-এ (${disc}% ছাড়)!`,
+                            });
+                            setSavedNotice('মূল্যছাড় নোটিফিকেশন পাঠানো হয়েছে! উপরে টোস্ট প্রদর্শন হচ্ছে।');
+                            setTimeout(() => setSavedNotice(null), 3500);
+                          }}
+                          className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-cyan-700 hover:bg-cyan-800 text-white transition-colors cursor-pointer shadow-xs"
+                        >
+                          <Percent className="w-3.5 h-3.5" />
+                          <span>নোটিফিকেশন টেস্ট পাঠান</span>
+                        </button>
                       </div>
                     </div>
                   )}

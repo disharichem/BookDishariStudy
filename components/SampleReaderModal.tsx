@@ -1,8 +1,8 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import Image from 'next/image';
-import { Product } from '@/types';
+import { Product, SamplePage } from '@/types';
 import { 
   X, 
   BookOpen, 
@@ -15,8 +15,12 @@ import {
   Layers, 
   FileText,
   BookmarkCheck,
-  ZoomIn
+  ZoomIn,
+  HardDriveDownload,
+  WifiOff,
+  Check
 } from 'lucide-react';
+import { addRecentlyViewed } from '@/lib/recentlyViewed';
 
 interface SampleReaderModalProps {
   product: Product | null;
@@ -26,6 +30,8 @@ interface SampleReaderModalProps {
   onViewFullDetails?: (product: Product) => void;
 }
 
+const OFFLINE_SAMPLE_CACHE_KEY = 'dishari_offline_samples_cache_v1';
+
 export const SampleReaderModal: React.FC<SampleReaderModalProps> = ({
   product,
   onClose,
@@ -34,20 +40,77 @@ export const SampleReaderModal: React.FC<SampleReaderModalProps> = ({
   onViewFullDetails,
 }) => {
   const [currentPageIndex, setCurrentPageIndex] = useState(0);
+  const [isSavedOffline, setIsSavedOffline] = useState(false);
+  const [cachedAt, setCachedAt] = useState<string | null>(null);
+  const [cachedSamplePages, setCachedSamplePages] = useState<SamplePage[] | null>(null);
+  const [isOffline, setIsOffline] = useState(false);
+  const [feedbackMessage, setFeedbackMessage] = useState<string | null>(null);
+
+  // Monitor online/offline status and hydrate local cache safely
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+
+    const handleNetworkChange = () => {
+      setIsOffline(!navigator.onLine);
+    };
+
+    window.addEventListener('online', handleNetworkChange);
+    window.addEventListener('offline', handleNetworkChange);
+
+    // Asynchronous load to ensure SSR / hydration parity
+    const timer = setTimeout(() => {
+      setIsOffline(!navigator.onLine);
+
+      if (product) {
+        addRecentlyViewed(product.id);
+        try {
+          const raw = localStorage.getItem(OFFLINE_SAMPLE_CACHE_KEY);
+          if (raw) {
+            const cache = JSON.parse(raw);
+            const cachedItem = cache[product.id];
+            if (cachedItem) {
+              setIsSavedOffline(true);
+              setCachedAt(cachedItem.savedAt || null);
+              if (cachedItem.samplePages && cachedItem.samplePages.length > 0) {
+                setCachedSamplePages(cachedItem.samplePages);
+              }
+            } else {
+              setIsSavedOffline(false);
+              setCachedAt(null);
+              setCachedSamplePages(null);
+            }
+          }
+        } catch (e) {
+          console.warn('Failed to load offline sample cache:', e);
+        }
+      }
+    }, 0);
+
+    return () => {
+      clearTimeout(timer);
+      window.removeEventListener('online', handleNetworkChange);
+      window.removeEventListener('offline', handleNetworkChange);
+    };
+  }, [product]);
 
   if (!product) return null;
 
   const isPdf = product.format === 'pdf';
   const isCombo = product.format === 'combo';
-  const samples = product.samplePages && product.samplePages.length > 0
-    ? product.samplePages
-    : [
-        {
-          pageNumber: 1,
-          title: 'নমুনা পাঠ্য অংশ',
-          excerpt: product.description || 'বইটির নমুনা পাঠ শীঘ্রই যুক্ত করা হবে।',
-        }
-      ];
+
+  // Fallback to offline cached sample pages if product.samplePages is empty or offline
+  const samples: SamplePage[] = 
+    (product.samplePages && product.samplePages.length > 0)
+      ? product.samplePages
+      : (cachedSamplePages && cachedSamplePages.length > 0)
+      ? cachedSamplePages
+      : [
+          {
+            pageNumber: 1,
+            title: 'নমুনা পাঠ্য অংশ',
+            excerpt: product.description || 'বইটির নমুনা পাঠ শীঘ্রই যুক্ত করা হবে।',
+          }
+        ];
 
   const currentSample = samples[currentPageIndex] || samples[0];
 
@@ -60,6 +123,57 @@ export const SampleReaderModal: React.FC<SampleReaderModalProps> = ({
   const handlePrev = () => {
     if (currentPageIndex > 0) {
       setCurrentPageIndex((prev) => prev - 1);
+    }
+  };
+
+  // Toggle Save for Offline caching in local state and localStorage
+  const handleToggleSaveOffline = () => {
+    if (!product) return;
+    try {
+      const raw = localStorage.getItem(OFFLINE_SAMPLE_CACHE_KEY);
+      const cache = raw ? JSON.parse(raw) : {};
+
+      if (isSavedOffline) {
+        // Remove from offline cache
+        delete cache[product.id];
+        localStorage.setItem(OFFLINE_SAMPLE_CACHE_KEY, JSON.stringify(cache));
+        setIsSavedOffline(false);
+        setCachedAt(null);
+        setFeedbackMessage('অফলাইন ক্যাশ থেকে নমুনাটি সরানো হয়েছে।');
+      } else {
+        // Save to offline cache
+        const now = new Date();
+        const dateFormatted = now.toLocaleDateString('bn-BD', {
+          month: 'short',
+          day: 'numeric',
+          hour: '2-digit',
+          minute: '2-digit',
+        });
+        const pagesToCache = (product.samplePages && product.samplePages.length > 0)
+          ? product.samplePages
+          : samples;
+
+        cache[product.id] = {
+          productId: product.id,
+          titleBn: product.titleBn,
+          format: product.format,
+          samplePages: pagesToCache,
+          savedAt: dateFormatted,
+          timestamp: Date.now(),
+        };
+
+        localStorage.setItem(OFFLINE_SAMPLE_CACHE_KEY, JSON.stringify(cache));
+        setIsSavedOffline(true);
+        setCachedAt(dateFormatted);
+        setCachedSamplePages(pagesToCache);
+        setFeedbackMessage('নমুনাটি অফলাইনে সেভ করা হয়েছে! ইন্টারনেট ছাড়াও এটি পড়তে পারবেন।');
+      }
+
+      setTimeout(() => {
+        setFeedbackMessage(null);
+      }, 3500);
+    } catch (err) {
+      console.warn('Error updating offline sample cache:', err);
     }
   };
 
@@ -92,15 +206,73 @@ export const SampleReaderModal: React.FC<SampleReaderModalProps> = ({
             </div>
           </div>
 
-          <button
-            type="button"
-            onClick={onClose}
-            aria-label="পপআপ বন্ধ করুন"
-            className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition-colors cursor-pointer shrink-0 ml-2"
-          >
-            <X className="w-5 h-5" />
-          </button>
+          {/* Right Header Action: Save for Offline Button & Close */}
+          <div className="flex items-center gap-2 shrink-0 ml-2">
+            <button
+              type="button"
+              onClick={handleToggleSaveOffline}
+              className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer shadow-xs active:scale-[0.98] ${
+                isSavedOffline
+                  ? 'bg-emerald-500/25 text-emerald-300 border border-emerald-500/50 hover:bg-emerald-500/35 hover:text-white'
+                  : 'bg-cyan-500/20 text-cyan-200 border border-cyan-500/40 hover:bg-cyan-500/35 hover:text-white'
+              }`}
+              title={isSavedOffline ? 'অফলাইন ক্যাশ থেকে নমুনা মুছতে ক্লিক করুন' : 'ইন্টারনেট ছাড়াই পড়তে নমুনাটি সেভ করুন'}
+            >
+              {isSavedOffline ? (
+                <>
+                  <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
+                  <span className="hidden xs:inline">অফলাইনে সংরক্ষিত</span>
+                  <span className="xs:hidden">সংরক্ষিত</span>
+                </>
+              ) : (
+                <>
+                  <HardDriveDownload className="w-3.5 h-3.5 text-cyan-300 shrink-0" />
+                  <span className="hidden xs:inline">অফলাইনে সেভ করুন</span>
+                  <span className="xs:hidden">অফলাইন সেভ</span>
+                </>
+              )}
+            </button>
+
+            <button
+              type="button"
+              onClick={onClose}
+              aria-label="পপআপ বন্ধ করুন"
+              className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition-colors cursor-pointer shrink-0"
+            >
+              <X className="w-5 h-5" />
+            </button>
+          </div>
         </div>
+
+        {/* Offline Connection Alert Banner */}
+        {isOffline && (
+          <div className="bg-amber-950/90 border-b border-amber-500/40 px-4 py-2 flex items-center justify-between text-xs text-amber-200 animate-in fade-in">
+            <div className="flex items-center gap-2">
+              <WifiOff className="w-4 h-4 text-amber-400 shrink-0" />
+              <span>আপনি বর্তমানে অফলাইনে আছেন — সংরক্ষিত স্থানীয় ক্যাশ থেকে নমুনা পাঠ প্রদর্শন করা হচ্ছে।</span>
+            </div>
+            <span className="text-[10px] bg-amber-500/20 border border-amber-400/40 px-2 py-0.5 rounded font-bold text-amber-300 shrink-0">
+              অফলাইন মোড
+            </span>
+          </div>
+        )}
+
+        {/* Action Feedback Toast */}
+        {feedbackMessage && (
+          <div className="bg-emerald-700 text-white text-xs px-4 py-2.5 flex items-center justify-between animate-in slide-in-from-top-1 duration-200 shadow-inner">
+            <div className="flex items-center gap-2 font-medium">
+              <Check className="w-4 h-4 text-emerald-200 shrink-0" />
+              <span>{feedbackMessage}</span>
+            </div>
+            <button
+              type="button"
+              onClick={() => setFeedbackMessage(null)}
+              className="text-emerald-100 hover:text-white p-0.5 cursor-pointer ml-2"
+            >
+              <X className="w-3.5 h-3.5" />
+            </button>
+          </div>
+        )}
 
         {/* Page Switcher Navigation Bar */}
         <div className="px-4 sm:px-6 py-2.5 bg-slate-100 border-b border-slate-200 flex flex-wrap items-center justify-between gap-2 text-xs">
@@ -121,6 +293,14 @@ export const SampleReaderModal: React.FC<SampleReaderModalProps> = ({
                 {currentPageIndex === idx && <span className="w-1.5 h-1.5 rounded-full bg-cyan-400" />}
               </button>
             ))}
+
+            {isSavedOffline && (
+              <span className="hidden sm:inline-flex items-center gap-1 px-2.5 py-0.5 rounded-md text-[11px] font-medium bg-emerald-50 text-emerald-700 border border-emerald-200 ml-1">
+                <Check className="w-3 h-3 text-emerald-600" />
+                <span>অফলাইন ক্যাশে প্রস্তুত</span>
+                {cachedAt && <span className="text-slate-400 text-[10px]">({cachedAt})</span>}
+              </span>
+            )}
           </div>
 
           <div className="flex items-center gap-1 shrink-0">
@@ -155,9 +335,17 @@ export const SampleReaderModal: React.FC<SampleReaderModalProps> = ({
             {/* Watermark / Header of the Book Page */}
             <div className="flex items-center justify-between border-b border-slate-100 pb-3 text-xs text-slate-500">
               <span className="font-semibold text-cyan-800">দিশারী কেমিস্ট্রি প্রকাশনা</span>
-              <span className="font-mono bg-slate-100 px-2 py-0.5 rounded text-slate-600 font-semibold">
-                পৃষ্ঠা নং: {currentSample.pageNumber || currentPageIndex + 1}
-              </span>
+              <div className="flex items-center gap-2">
+                {isSavedOffline && (
+                  <span className="text-[10px] bg-emerald-50 text-emerald-700 border border-emerald-200 px-2 py-0.5 rounded font-semibold flex items-center gap-1">
+                    <Check className="w-3 h-3 text-emerald-600" />
+                    অফলাইন প্রস্তুত
+                  </span>
+                )}
+                <span className="font-mono bg-slate-100 px-2 py-0.5 rounded text-slate-600 font-semibold">
+                  পৃষ্ঠা নং: {currentSample.pageNumber || currentPageIndex + 1}
+                </span>
+              </div>
             </div>
 
             {/* Title of the Sample Section */}
@@ -243,6 +431,32 @@ export const SampleReaderModal: React.FC<SampleReaderModalProps> = ({
           </div>
 
           <div className="flex items-center gap-2 w-full sm:w-auto">
+            {/* Secondary offline toggle for quick access */}
+            <button
+              type="button"
+              onClick={handleToggleSaveOffline}
+              className={`px-3 py-2.5 rounded-xl text-xs font-semibold border transition-all cursor-pointer flex items-center justify-center gap-1.5 ${
+                isSavedOffline
+                  ? 'bg-emerald-50 border-emerald-300 text-emerald-800 hover:bg-emerald-100'
+                  : 'border-slate-300 text-slate-700 hover:bg-slate-100'
+              }`}
+              title={isSavedOffline ? "অফলাইন ক্যাশ থেকে সরান" : "ইন্টারনেট ছাড়া পড়তে সেভ করুন"}
+            >
+              {isSavedOffline ? (
+                <>
+                  <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+                  <span className="hidden sm:inline">অফলাইন প্রস্তুত</span>
+                  <span className="sm:hidden">সেভড</span>
+                </>
+              ) : (
+                <>
+                  <HardDriveDownload className="w-3.5 h-3.5 text-slate-600 shrink-0" />
+                  <span className="hidden sm:inline">অফলাইনে সেভ</span>
+                  <span className="sm:hidden">অফলাইন</span>
+                </>
+              )}
+            </button>
+
             {onViewFullDetails && (
               <button
                 type="button"

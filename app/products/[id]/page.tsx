@@ -17,6 +17,11 @@ import { MyPurchasedPdfsModal } from '@/components/MyPurchasedPdfsModal';
 import { AdminProductManagerModal } from '@/components/AdminProductManagerModal';
 import { Footer } from '@/components/Footer';
 import { FloatingSupport } from '@/components/FloatingSupport';
+import { PriceAlertToast } from '@/components/PriceAlertToast';
+import { addRecentlyViewed } from '@/lib/recentlyViewed';
+import { useCart } from '@/lib/cartStore';
+import { useWishlist } from '@/lib/wishlistStore';
+import { useRecentOrders } from '@/lib/recentOrders';
 import { CheckCircle2, ArrowLeft, BookOpen } from 'lucide-react';
 import Link from 'next/link';
 
@@ -27,8 +32,27 @@ export default function ProductDetailPage() {
   const productId = Array.isArray(rawId) ? rawId[0] : rawId;
 
   const [products, setProducts] = useState<Product[]>(PRODUCTS);
-  const [cartItems, setCartItems] = useState<CartItem[]>([]);
-  const [wishlistIds, setWishlistIds] = useState<string[]>([]);
+  
+  // Persistent shopping cart & wishlist stores (synced across tabs & pages via localStorage)
+  const {
+    cartItems,
+    totalCartCount,
+    addToCart,
+    directOrder,
+    updateQuantity,
+    removeFromCart,
+    clearCart,
+    addAllFromWishlist,
+  } = useCart(products);
+
+  const {
+    wishlistIds,
+    wishlistedProducts,
+    toggleWishlist,
+    removeFromWishlist,
+    clearWishlist,
+  } = useWishlist(products);
+
   const [sampleProduct, setSampleProduct] = useState<Product | null>(null);
   const [isCartOpen, setIsCartOpen] = useState(false);
   const [isWishlistOpen, setIsWishlistOpen] = useState(false);
@@ -37,7 +61,7 @@ export default function ProductDetailPage() {
   const [isMyPdfsOpen, setIsMyPdfsOpen] = useState(false);
   const [isAdminOpen, setIsAdminOpen] = useState(false);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
-  const [recentOrders, setRecentOrders] = useState<CompletedOrder[]>([]);
+  const { recentOrders, addRecentOrder } = useRecentOrders();
 
   // Sync custom products from Firestore if edited
   useEffect(() => {
@@ -83,20 +107,14 @@ export default function ProductDetailPage() {
       console.warn('Firestore fallback:', e);
     }
 
-    // Hydrate wishlist from localStorage asynchronously
-    const timer = setTimeout(() => {
-      try {
-        const stored = localStorage.getItem('dishari_wishlist_ids');
-        if (stored) {
-          setWishlistIds(JSON.parse(stored));
-        }
-      } catch (e) {
-        console.warn('LocalStorage wishlist load error:', e);
-      }
-    }, 0);
-
-    return () => clearTimeout(timer);
   }, []);
+
+  // Track product view in recently viewed list (max 5 in localStorage)
+  useEffect(() => {
+    if (productId) {
+      addRecentlyViewed(productId);
+    }
+  }, [productId]);
 
   const currentProduct = products.find((p) => p.id === productId) || null;
 
@@ -108,120 +126,60 @@ export default function ProductDetailPage() {
   };
 
   const handleToggleWishlist = (product: Product) => {
-    setWishlistIds((prev) => {
-      let updated: string[];
-      if (prev.includes(product.id)) {
-        updated = prev.filter((id) => id !== product.id);
-        showToast(`"${product.titleBn}" উইশলিস্ট থেকে সরানো হয়েছে।`);
-      } else {
-        updated = [...prev, product.id];
-        showToast(`"${product.titleBn}" উইশলিস্টে যুক্ত করা হয়েছে! ❤️`);
-      }
-      try {
-        localStorage.setItem('dishari_wishlist_ids', JSON.stringify(updated));
-      } catch (e) {
-        console.warn('LocalStorage save error:', e);
-      }
-      return updated;
-    });
+    const isAdded = toggleWishlist(product);
+    if (isAdded) {
+      showToast(`"${product.titleBn}" উইশলিস্টে যুক্ত করা হয়েছে! ❤️`);
+    } else {
+      showToast(`"${product.titleBn}" উইশলিস্ট থেকে সরানো হয়েছে।`);
+    }
   };
 
   const handleRemoveFromWishlist = (id: string) => {
-    setWishlistIds((prev) => {
-      const updated = prev.filter((item) => item !== id);
-      try {
-        localStorage.setItem('dishari_wishlist_ids', JSON.stringify(updated));
-      } catch (e) {
-        console.warn('LocalStorage save error:', e);
-      }
-      return updated;
-    });
+    removeFromWishlist(id);
     showToast('বইটি উইশলিস্ট থেকে সরানো হয়েছে।');
   };
 
   const handleMoveWishlistToCart = (product: Product) => {
-    handleAddToCart(product);
+    addToCart(product);
+    showToast(`"${product.titleBn}" ব্যাগে যুক্ত করা হয়েছে!`);
   };
 
   const handleAddAllWishlistToCart = () => {
-    const wishlistedProducts = products.filter((p) => wishlistIds.includes(p.id));
     if (wishlistedProducts.length === 0) return;
-    setCartItems((prev) => {
-      const updated = [...prev];
-      wishlistedProducts.forEach((p) => {
-        const existing = updated.find((item) => item.product.id === p.id);
-        if (existing) {
-          existing.quantity += 1;
-        } else {
-          updated.push({ product: p, quantity: 1 });
-        }
-      });
-      return updated;
-    });
+    addAllFromWishlist(wishlistedProducts);
     showToast(`${wishlistedProducts.length}টি বই ব্যাগে যোগ করা হয়েছে!`);
     setIsWishlistOpen(false);
     setIsCartOpen(true);
   };
 
   const handleClearWishlist = () => {
-    setWishlistIds([]);
-    try {
-      localStorage.removeItem('dishari_wishlist_ids');
-    } catch (e) {
-      console.warn('LocalStorage clear error:', e);
-    }
+    clearWishlist();
     showToast('উইশলিস্ট খালি করা হয়েছে।');
   };
 
   const handleAddToCart = (product: Product) => {
-    setCartItems((prev) => {
-      const existing = prev.find((item) => item.product.id === product.id);
-      if (existing) {
-        return prev.map((item) =>
-          item.product.id === product.id
-            ? { ...item, quantity: item.quantity + 1 }
-            : item
-        );
-      }
-      return [...prev, { product, quantity: 1 }];
-    });
+    addToCart(product);
     showToast(`"${product.titleBn}" ব্যাগে যুক্ত করা হয়েছে!`);
   };
 
   const handleDirectOrder = (product: Product) => {
-    setCartItems((prev) => {
-      const existing = prev.find((item) => item.product.id === product.id);
-      if (existing) {
-        return prev;
-      }
-      return [{ product, quantity: 1 }];
-    });
+    directOrder(product);
     setIsCheckoutOpen(true);
   };
 
   const handleUpdateQuantity = (id: string, quantity: number) => {
-    if (quantity <= 0) {
-      handleRemoveItem(id);
-      return;
-    }
-    setCartItems((prev) =>
-      prev.map((item) =>
-        item.product.id === id ? { ...item, quantity } : item
-      )
-    );
+    updateQuantity(id, quantity);
   };
 
   const handleRemoveItem = (id: string) => {
-    setCartItems((prev) => prev.filter((item) => item.product.id !== id));
+    removeFromCart(id);
   };
 
   const handleOrderSuccess = (order: CompletedOrder) => {
-    setRecentOrders((prev) => [order, ...prev]);
-    setCartItems([]);
+    addRecentOrder(order);
+    clearCart();
     showToast(`অর্ডার সফল! অর্ডার কোড: ${order.orderId}`);
   };
-
-  const totalCartCount = cartItems.reduce((sum, item) => sum + item.quantity, 0);
 
   return (
     <div className="min-h-screen flex flex-col bg-slate-50 text-slate-800">
@@ -233,6 +191,9 @@ export default function ProductDetailPage() {
           <span>{toastMessage}</span>
         </div>
       )}
+
+      {/* Reactive Price Change & Discount Toast Notification */}
+      <PriceAlertToast products={products} />
 
       {/* Main Top Navigation */}
       <Navbar

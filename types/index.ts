@@ -16,6 +16,16 @@ export interface Chapter {
   topics: string[];
 }
 
+export interface AuthorInfo {
+  name: string;
+  role: string;
+  institution?: string;
+  image: string;
+  bio: string;
+  experience?: string;
+  badges?: string[];
+}
+
 /**
  * Admin-Ready Product Schema
  * Designed so that store owners can easily manage titles, covers, pricing,
@@ -39,6 +49,7 @@ export interface Product {
   coverImage: string;
   edition?: string;
   author?: string;
+  authorInfo?: AuthorInfo;
   publisher?: string;
   bindingType?: string; // e.g. পেপারব্যাক, হার্ডকপি
   fileFormat?: string; // e.g. PDF (Interactive), ePub
