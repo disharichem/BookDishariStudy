@@ -7,7 +7,7 @@ import { Product } from '@/types';
 import { BookOpen, Download, Layers, Eye, ShoppingCart, Heart } from 'lucide-react';
 import { toBengaliNumber, calculateCommissionPercent } from '@/lib/utils';
 import { StarRating } from './StarRating';
-import { getProductRatingSummary, getUserRating, submitStudentRating, getBaseProductRatingSummary } from '@/lib/ratings';
+import { getProductRatingSummary, getBaseProductRatingSummary } from '@/lib/ratings';
 import { addRecentlyViewed } from '@/lib/recentlyViewed';
 
 interface BookCardProps {
@@ -34,21 +34,17 @@ export const BookCard: React.FC<BookCardProps> = ({
 
   // Initialize with baseline-only to guarantee SSR and CSR hydration parity
   const [ratingSummary, setRatingSummary] = useState(() => getBaseProductRatingSummary(product.id));
-  const [userRating, setUserRating] = useState<number | null>(null);
-  const [ratedSuccess, setRatedSuccess] = useState(false);
 
   useEffect(() => {
     // Hydrate client state from localStorage asynchronously
     const timer = setTimeout(() => {
       setRatingSummary(getProductRatingSummary(product.id));
-      setUserRating(getUserRating(product.id));
     }, 0);
 
     const handleUpdate = (e: Event) => {
       const customEvent = e as CustomEvent<{ productId: string }>;
       if (customEvent.detail?.productId === product.id) {
         setRatingSummary(getProductRatingSummary(product.id));
-        setUserRating(getUserRating(product.id));
       }
     };
     window.addEventListener('dishari-rating-updated', handleUpdate);
@@ -57,14 +53,6 @@ export const BookCard: React.FC<BookCardProps> = ({
       window.removeEventListener('dishari-rating-updated', handleUpdate);
     };
   }, [product.id]);
-
-  const handleRate = (stars: number) => {
-    const updated = submitStudentRating(product.id, stars);
-    setRatingSummary(updated);
-    setUserRating(stars);
-    setRatedSuccess(true);
-    setTimeout(() => setRatedSuccess(false), 2500);
-  };
 
   return (
     <div className="group flex flex-col bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 hover:border-slate-300 dark:hover:border-slate-700 hover:shadow-md dark:shadow-slate-950/50 transition-all duration-200 overflow-hidden relative">
@@ -160,22 +148,15 @@ export const BookCard: React.FC<BookCardProps> = ({
           </Link>
         </div>
 
-        {/* Star Rating Component - শিক্ষার্থীদের রেটিং */}
-        <div className="flex items-center justify-between gap-1 py-0.5">
+        {/* Star Rating Component - শিক্ষার্থীদের রেটিং (শুধু দেখার জন্য, রেটিং দেওয়া যাবে না) */}
+        <div className="flex items-center gap-1 py-0.5">
           <StarRating
             rating={ratingSummary.averageRating}
             totalRatings={ratingSummary.totalRatings}
-            userRating={userRating}
             size="xs"
-            interactive
-            onRate={handleRate}
+            interactive={false}
             showCount
           />
-          {ratedSuccess && (
-            <span className="text-[10px] text-emerald-700 dark:text-emerald-300 font-bold bg-emerald-50 dark:bg-emerald-950/80 border border-emerald-200 dark:border-emerald-800 px-1 py-0.5 rounded-xs animate-in fade-in">
-              রেটিং গৃহীত!
-            </span>
-          )}
         </div>
 
         <div className="space-y-2.5 pt-1 border-t border-slate-100 dark:border-slate-800">
@@ -212,7 +193,7 @@ export const BookCard: React.FC<BookCardProps> = ({
               onClick={() => onDirectOrder(product)}
               className="inline-flex items-center justify-center gap-1 py-2 px-1.5 sm:px-2 rounded-lg text-xs font-semibold text-white bg-slate-900 dark:bg-cyan-600 hover:bg-slate-800 dark:hover:bg-cyan-500 active:scale-[0.98] transition-all cursor-pointer whitespace-nowrap shadow-xs"
             >
-              <span>{isPdf ? 'PDF অর্ডার' : 'বই অর্ডার'}</span>
+              <span>এখুনি কিনুন</span>
             </button>
           </div>
         </div>

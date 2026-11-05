@@ -1,6 +1,7 @@
 'use client';
 
 import { useCallback, useSyncExternalStore } from 'react';
+import { useMounted } from './useMounted';
 
 export type ThemeMode = 'light' | 'dark';
 
@@ -63,20 +64,25 @@ function getServerSnapshot(): ThemeMode {
 }
 
 export function useTheme() {
+  const mounted = useMounted();
   const theme = useSyncExternalStore(subscribe, getSnapshot, getServerSnapshot);
 
   const toggleTheme = useCallback(() => {
-    const nextTheme: ThemeMode = theme === 'dark' ? 'light' : 'dark';
+    const currentStored = getStoredTheme();
+    const nextTheme: ThemeMode = currentStored === 'dark' ? 'light' : 'dark';
     applyTheme(nextTheme);
-  }, [theme]);
+  }, []);
 
   const setTheme = useCallback((newTheme: ThemeMode) => {
     applyTheme(newTheme);
   }, []);
 
+  const activeTheme: ThemeMode = mounted ? theme : 'light';
+
   return {
-    theme,
-    isDark: theme === 'dark',
+    theme: activeTheme,
+    isDark: mounted && theme === 'dark',
+    isMounted: mounted,
     toggleTheme,
     setTheme,
   };

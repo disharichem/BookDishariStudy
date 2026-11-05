@@ -60,6 +60,7 @@ export interface Product {
   pdfUploadedAt?: string;
   hasSecurePdf?: boolean; // True when admin has linked an authorized PDF
   fileSizeMb?: number;
+  samplePdfUrl?: string; // URL for 3-page preview PDF
   description: string;
   highlights: string[];
   chapters: Chapter[];

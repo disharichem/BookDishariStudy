@@ -459,7 +459,7 @@ export const ProductDetailPageView: React.FC<ProductDetailPageViewProps> = ({
                   onClick={() => onDirectOrder(product)}
                   className="flex-1 inline-flex items-center justify-center gap-1 sm:gap-2 py-3 sm:py-3.5 px-2.5 sm:px-5 rounded-xl text-xs sm:text-sm font-bold text-white bg-slate-900 hover:bg-slate-800 active:scale-[0.98] transition-all shadow-md hover:shadow-lg cursor-pointer text-center whitespace-nowrap"
                 >
-                  <span className="truncate">{isPdf ? 'সরাসরি PDF অর্ডার' : 'সরাসরি বইটি অর্ডার'}</span>
+                  <span className="truncate">এখুনি কিনুন</span>
                   <ChevronRight className="w-3.5 h-3.5 sm:w-4 sm:h-4 shrink-0" />
                 </button>
 

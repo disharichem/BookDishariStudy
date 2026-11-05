@@ -1,6 +1,7 @@
 'use client';
 
 import { useSyncExternalStore, useCallback, useMemo } from 'react';
+import { useMounted } from './useMounted';
 import { CompletedOrder } from '@/types';
 
 export const RECENT_ORDERS_STORAGE_KEY = 'dishari_recent_orders';
@@ -67,7 +68,10 @@ function getServerOrdersSnapshot(): string {
 export function useRecentOrders(): {
   recentOrders: CompletedOrder[];
   addRecentOrder: (order: CompletedOrder) => void;
+  isReady: boolean;
 } {
+  const mounted = useMounted();
+
   const rawJson = useSyncExternalStore(
     subscribeOrders,
     getOrdersSnapshot,
@@ -75,6 +79,7 @@ export function useRecentOrders(): {
   );
 
   const recentOrders = useMemo(() => {
+    if (!mounted) return [];
     try {
       const parsed = JSON.parse(rawJson);
       if (Array.isArray(parsed)) {
@@ -84,7 +89,7 @@ export function useRecentOrders(): {
       return [];
     }
     return [];
-  }, [rawJson]);
+  }, [rawJson, mounted]);
 
   const addRecentOrder = useCallback((order: CompletedOrder) => {
     saveStoredRecentOrder(order);
@@ -93,5 +98,6 @@ export function useRecentOrders(): {
   return {
     recentOrders,
     addRecentOrder,
+    isReady: mounted,
   };
 }

@@ -1,6 +1,7 @@
 'use client';
 
 import { useSyncExternalStore, useCallback, useMemo } from 'react';
+import { useMounted } from './useMounted';
 import { Product, CartItem } from '@/types';
 
 export const CART_STORAGE_KEY = 'dishari_cart_items';
@@ -197,6 +198,8 @@ export function useCart(allProducts: Product[] = []): {
   addAllFromWishlist: (productsToAdd: Product[]) => void;
   isReady: boolean;
 } {
+  const mounted = useMounted();
+
   const rawJson = useSyncExternalStore(
     subscribeCart,
     getCartSnapshot,
@@ -204,6 +207,7 @@ export function useCart(allProducts: Product[] = []): {
   );
 
   const entries: StoredCartEntry[] = useMemo(() => {
+    if (!mounted) return [];
     try {
       const parsed = JSON.parse(rawJson);
       if (Array.isArray(parsed)) {
@@ -234,10 +238,11 @@ export function useCart(allProducts: Product[] = []): {
       return [];
     }
     return [];
-  }, [rawJson]);
+  }, [rawJson, mounted]);
 
   // Map entries to hydrated CartItem array
   const cartItems: CartItem[] = useMemo(() => {
+    if (!mounted) return [];
     return entries
       .map((entry) => {
         const product = allProducts.find((p) => p.id === entry.productId);
@@ -248,15 +253,17 @@ export function useCart(allProducts: Product[] = []): {
         };
       })
       .filter((item): item is CartItem => item !== null);
-  }, [entries, allProducts]);
+  }, [entries, allProducts, mounted]);
 
   const totalCartCount = useMemo(() => {
+    if (!mounted) return 0;
     return cartItems.reduce((sum, item) => sum + item.quantity, 0);
-  }, [cartItems]);
+  }, [cartItems, mounted]);
 
   const subtotal = useMemo(() => {
+    if (!mounted) return 0;
     return cartItems.reduce((sum, item) => sum + item.product.price * item.quantity, 0);
-  }, [cartItems]);
+  }, [cartItems, mounted]);
 
   const addToCart = useCallback((product: Product, quantity = 1) => {
     addProductToCart(product.id, quantity);
@@ -292,6 +299,6 @@ export function useCart(allProducts: Product[] = []): {
     removeFromCart,
     clearCart,
     addAllFromWishlist,
-    isReady: true,
+    isReady: mounted,
   };
 }

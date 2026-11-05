@@ -184,7 +184,7 @@ export const Footer: React.FC<FooterProps> = ({
 
         {/* Bottom Bar */}
         <div className="mt-12 pt-6 border-t border-slate-800 text-xs text-slate-500 flex flex-col sm:flex-row items-center justify-between gap-4">
-          <p>© {new Date().getFullYear()} দিশারী কেমিস্ট্রি (Dishari Chemistry). সর্বস্বত্ব সংরক্ষিত।</p>
+          <p suppressHydrationWarning>© {new Date().getFullYear()} দিশারী কেমিস্ট্রি (Dishari Chemistry). সর্বস্বত্ব সংরক্ষিত।</p>
           <div className="flex items-center gap-1 text-[11px] text-slate-400">
             <span>বাংলাদেশি শিক্ষার্থীদের জন্য নিবেদিত</span>
           </div>

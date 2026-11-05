@@ -8,7 +8,6 @@ import { testFirestoreConnection, db } from '@/lib/firebase';
 import { collection, onSnapshot } from 'firebase/firestore';
 import { Navbar } from '@/components/Navbar';
 import { Hero } from '@/components/Hero';
-import { BookCatalog } from '@/components/BookCatalog';
 import { ProductDetailPageView } from '@/components/ProductDetailPageView';
 import { SampleReaderModal } from '@/components/SampleReaderModal';
 import { WishlistDrawer } from '@/components/WishlistDrawer';
@@ -23,7 +22,7 @@ import { FAQSection } from '@/components/FAQSection';
 import { ContactUs } from '@/components/ContactUs';
 import { StudentReviews } from '@/components/StudentReviews';
 import { Footer } from '@/components/Footer';
-import { FloatingSupport } from '@/components/FloatingSupport';
+import { BestSellers } from '@/components/BestSellers';
 import { PriceAlertToast } from '@/components/PriceAlertToast';
 import { RecentlyViewed } from '@/components/RecentlyViewed';
 import { addRecentlyViewed } from '@/lib/recentlyViewed';
@@ -286,19 +285,15 @@ export default function HomePage() {
               onOpenSampleModal={handleOpenSampleModal}
             />
 
-            {/* Book Catalog Section with Filter, Budget Filter, and Search */}
-            <BookCatalog
+            {/* Best Sellers Section (সর্বাধিক বিক্রিত বই ও হ্যান্ডনোট) */}
+            <BestSellers
               products={products}
               wishlistIds={wishlistIds}
               onToggleWishlist={handleToggleWishlist}
-              activeCategory={activeCategory}
-              onCategoryChange={setActiveCategory}
-              selectedBranch={selectedBranch}
-              onSelectBranch={setSelectedBranch}
-              onOpenSample={handleOpenSampleModal}
-              onViewDetails={handleOpenProduct}
+              onOpenProduct={handleOpenProduct}
               onDirectOrder={handleDirectOrder}
               onAddToCart={handleAddToCart}
+              onOpenSampleModal={handleOpenSampleModal}
             />
 
             {/* 3 Step Ordering Guide */}
@@ -403,9 +398,6 @@ export default function HomePage() {
           showToast(`"${updated.titleBn}" ডাটা সফলভাবে আপডেট হয়েছে!`);
         }}
       />
-
-      {/* Floating WhatsApp Action */}
-      <FloatingSupport />
 
     </div>
   );

@@ -16,7 +16,6 @@ import { OrderTrackingModal } from '@/components/OrderTrackingModal';
 import { MyPurchasedPdfsModal } from '@/components/MyPurchasedPdfsModal';
 import { AdminProductManagerModal } from '@/components/AdminProductManagerModal';
 import { Footer } from '@/components/Footer';
-import { FloatingSupport } from '@/components/FloatingSupport';
 import { PriceAlertToast } from '@/components/PriceAlertToast';
 import { addRecentlyViewed } from '@/lib/recentlyViewed';
 import { useCart } from '@/lib/cartStore';
@@ -331,9 +330,6 @@ export default function ProductDetailPage() {
           showToast(`"${updated.titleBn}" ডাটা সফলভাবে আপডেট হয়েছে!`);
         }}
       />
-
-      {/* Floating Support */}
-      <FloatingSupport />
 
     </div>
   );

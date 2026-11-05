@@ -1,6 +1,7 @@
 'use client';
 
 import { useSyncExternalStore, useCallback, useMemo } from 'react';
+import { useMounted } from './useMounted';
 import { Product } from '@/types';
 
 export const WISHLIST_STORAGE_KEY = 'dishari_wishlist_ids';
@@ -124,6 +125,8 @@ export function useWishlist(allProducts: Product[] = []): {
   isWishlisted: (productId: string) => boolean;
   isReady: boolean;
 } {
+  const mounted = useMounted();
+
   const rawJson = useSyncExternalStore(
     subscribeWishlist,
     getWishlistSnapshot,
@@ -131,6 +134,7 @@ export function useWishlist(allProducts: Product[] = []): {
   );
 
   const wishlistIds: string[] = useMemo(() => {
+    if (!mounted) return [];
     try {
       const parsed = JSON.parse(rawJson);
       if (Array.isArray(parsed)) {
@@ -140,7 +144,7 @@ export function useWishlist(allProducts: Product[] = []): {
       return [];
     }
     return [];
-  }, [rawJson]);
+  }, [rawJson, mounted]);
 
   const toggleWishlist = useCallback((product: Product) => {
     return toggleWishlistId(product.id);
@@ -162,19 +166,20 @@ export function useWishlist(allProducts: Product[] = []): {
   );
 
   const wishlistedProducts = useMemo(() => {
+    if (!mounted) return [];
     return wishlistIds
       .map((id) => allProducts.find((p) => p.id === id))
       .filter((p): p is Product => Boolean(p));
-  }, [wishlistIds, allProducts]);
+  }, [wishlistIds, allProducts, mounted]);
 
   return {
     wishlistIds,
-    wishlistCount: wishlistIds.length,
+    wishlistCount: mounted ? wishlistIds.length : 0,
     wishlistedProducts,
     toggleWishlist,
     removeFromWishlist,
     clearWishlist,
     isWishlisted,
-    isReady: true,
+    isReady: mounted,
   };
 }

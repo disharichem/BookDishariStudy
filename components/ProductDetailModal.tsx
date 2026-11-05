@@ -303,7 +303,7 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
                   }}
                   className="flex-1 inline-flex items-center justify-center gap-2 py-3 px-4 rounded-xl text-xs sm:text-sm font-semibold text-white bg-slate-900 hover:bg-slate-800 active:scale-[0.99] transition-all shadow-md cursor-pointer"
                 >
-                  <span>{isPdf ? 'সরাসরি PDF অর্ডার করুন' : 'সরাসরি বই অর্ডার করুন'}</span>
+                  <span>এখুনি কিনুন</span>
                   <ChevronRight className="w-4 h-4" />
                 </button>
               </div>

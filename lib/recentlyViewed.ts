@@ -1,11 +1,12 @@
 'use client';
 
 import { useSyncExternalStore, useCallback, useMemo } from 'react';
+import { useMounted } from './useMounted';
 import { Product } from '@/types';
 
 export const RECENTLY_VIEWED_STORAGE_KEY = 'dishari_recently_viewed';
 export const RECENTLY_VIEWED_EVENT = 'dishari-recently-viewed-updated';
-const MAX_RECENT_ITEMS = 5;
+const MAX_RECENT_ITEMS = 10;
 
 /**
  * Safely retrieve recently viewed product IDs from localStorage
@@ -111,6 +112,8 @@ export function useRecentlyViewed(allProducts: Product[]): {
   removeProduct: (id: string) => void;
   isReady: boolean;
 } {
+  const mounted = useMounted();
+
   const rawIds = useSyncExternalStore(
     subscribeRecentlyViewed,
     getRecentlyViewedSnapshot,
@@ -118,6 +121,7 @@ export function useRecentlyViewed(allProducts: Product[]): {
   );
 
   const recentIds: string[] = useMemo(() => {
+    if (!mounted) return [];
     try {
       const parsed = JSON.parse(rawIds);
       if (Array.isArray(parsed)) {
@@ -127,7 +131,7 @@ export function useRecentlyViewed(allProducts: Product[]): {
       return [];
     }
     return [];
-  }, [rawIds]);
+  }, [rawIds, mounted]);
 
   const clearHistory = useCallback(() => {
     clearRecentlyViewed();
@@ -139,15 +143,16 @@ export function useRecentlyViewed(allProducts: Product[]): {
 
   // Map IDs to actual Product items in the order they were viewed
   const recentProducts: Product[] = useMemo(() => {
+    if (!mounted) return [];
     return recentIds
       .map((id) => allProducts.find((p) => p.id === id))
       .filter((p): p is Product => Boolean(p));
-  }, [recentIds, allProducts]);
+  }, [recentIds, allProducts, mounted]);
 
   return {
     recentProducts,
     clearHistory,
     removeProduct,
-    isReady: true,
+    isReady: mounted,
   };
 }

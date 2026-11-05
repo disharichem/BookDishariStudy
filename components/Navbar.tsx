@@ -1,8 +1,8 @@
 'use client';
 
 import React, { useState } from 'react';
-import { ShoppingBag, Search, Menu, X, Atom, Truck, PhoneCall, Database, Download, Heart, Sun, Moon } from 'lucide-react';
-import { useTheme } from '@/lib/theme';
+import { ShoppingBag, Search, Menu, X, Atom, Truck, PhoneCall, Database, Download, Heart } from 'lucide-react';
+import { useMounted } from '@/lib/useMounted';
 
 interface NavbarProps {
   cartCount: number;
@@ -41,7 +41,7 @@ export const Navbar: React.FC<NavbarProps> = ({
   const [titleIndex, setTitleIndex] = useState(0);
   const [isDeleting, setIsDeleting] = useState(false);
   const [searchVal, setSearchVal] = useState('');
-  const { isDark, toggleTheme } = useTheme();
+  const mounted = useMounted();
 
   // Typewriter animation effect with async timers
   React.useEffect(() => {
@@ -189,20 +189,6 @@ export const Navbar: React.FC<NavbarProps> = ({
 
         {/* Zone 3: primary action area */}
         <div className="flex items-center gap-2 sm:gap-3 shrink-0">
-          {/* Global Dark Mode Toggle */}
-          <button
-            type="button"
-            onClick={toggleTheme}
-            aria-label={isDark ? 'লাইট মোড চালু করুন' : 'ডার্ক মোড চালু করুন'}
-            title={isDark ? 'লাইট মোড' : 'ডার্ক মোড'}
-            className="p-2.5 rounded-lg border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-200 hover:text-amber-500 dark:hover:text-amber-400 hover:border-amber-300 dark:hover:border-amber-500/50 hover:bg-slate-100 dark:hover:bg-slate-800 transition-all cursor-pointer flex items-center justify-center shrink-0"
-          >
-            {isDark ? (
-              <Sun className="w-5 h-5 text-amber-400 transition-transform active:rotate-45" />
-            ) : (
-              <Moon className="w-5 h-5 text-slate-700 hover:text-cyan-700 transition-transform active:-rotate-12" />
-            )}
-          </button>
 
           {onOpenAdminManager && (
             <button
@@ -220,12 +206,13 @@ export const Navbar: React.FC<NavbarProps> = ({
             <button
               onClick={onOpenWishlist}
               aria-label="আমার উইশলিস্ট দেখুন"
+              suppressHydrationWarning
               className="relative p-2.5 rounded-lg border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:text-rose-600 dark:hover:text-rose-400 hover:border-rose-300 dark:hover:border-rose-700/60 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors cursor-pointer flex items-center gap-1.5"
               title="আমার উইশলিস্ট (সংরক্ষিত তালিকা)"
             >
-              <Heart className={`w-5 h-5 ${wishlistCount > 0 ? 'text-rose-500 fill-rose-500' : ''}`} />
+              <Heart className={`w-5 h-5 ${mounted && wishlistCount > 0 ? 'text-rose-500 fill-rose-500' : ''}`} />
               <span className="hidden md:inline text-xs font-medium">উইশলিস্ট</span>
-              {wishlistCount > 0 && (
+              {mounted && wishlistCount > 0 && (
                 <span className="absolute -top-1.5 -right-1.5 bg-rose-500 text-white font-bold text-[11px] w-5 h-5 rounded-full flex items-center justify-center tabular-nums shadow-xs">
                   {wishlistCount}
                 </span>
@@ -236,11 +223,12 @@ export const Navbar: React.FC<NavbarProps> = ({
           <button
             onClick={onOpenCart}
             aria-label="শপিং ব্যাগ দেখুন"
+            suppressHydrationWarning
             className="relative p-2.5 rounded-lg border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:text-cyan-700 dark:hover:text-cyan-400 hover:border-cyan-300 dark:hover:border-cyan-700 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors cursor-pointer flex items-center gap-2"
           >
             <ShoppingBag className="w-5 h-5" />
             <span className="hidden sm:inline text-xs font-medium">ব্যাগ</span>
-            {cartCount > 0 && (
+            {mounted && cartCount > 0 && (
               <span className="absolute -top-1.5 -right-1.5 bg-cyan-600 text-white font-bold text-[11px] w-5 h-5 rounded-full flex items-center justify-center tabular-nums shadow-xs">
                 {cartCount}
               </span>
@@ -321,28 +309,6 @@ export const Navbar: React.FC<NavbarProps> = ({
       {/* Mobile Drawer Menu */}
       {mobileMenuOpen && (
         <div className="md:hidden border-t border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 px-4 py-4 space-y-3 shadow-lg transition-colors duration-200">
-          {/* Mobile Dark Mode Switcher Row */}
-          <div className="flex items-center justify-between p-2.5 rounded-lg bg-slate-50 dark:bg-slate-800 border border-slate-200/80 dark:border-slate-700">
-            <div className="flex items-center gap-2 text-slate-800 dark:text-slate-200 text-sm font-medium">
-              {isDark ? (
-                <Sun className="w-4 h-4 text-amber-400" />
-              ) : (
-                <Moon className="w-4 h-4 text-cyan-600" />
-              )}
-              <span>{isDark ? 'ডার্ক মোড সক্রিয়' : 'লাইট মোড সক্রিয়'}</span>
-            </div>
-            <button
-              type="button"
-              onClick={toggleTheme}
-              className={`w-12 h-6 flex items-center rounded-full p-1 cursor-pointer transition-colors duration-200 ${
-                isDark ? 'bg-cyan-600 justify-end' : 'bg-slate-300 dark:bg-slate-600 justify-start'
-              }`}
-              aria-label="ডার্ক মোড টগল করুন"
-            >
-              <span className="bg-white w-4 h-4 rounded-full shadow-md" />
-            </button>
-          </div>
-
           <div className="grid grid-cols-2 gap-2 pb-2 border-b border-slate-100 dark:border-slate-800">
             <button
               onClick={() => handleNavClick('catalog', 'printed')}
@@ -397,10 +363,10 @@ export const Navbar: React.FC<NavbarProps> = ({
                 className="text-left py-2 px-2 hover:bg-slate-50 dark:hover:bg-slate-800 rounded-md flex items-center justify-between text-slate-700 dark:text-slate-300 font-medium transition-colors"
               >
                 <div className="flex items-center gap-2">
-                  <Heart className={`w-4 h-4 ${wishlistCount > 0 ? 'text-rose-500 fill-rose-500' : 'text-slate-500 dark:text-slate-400'}`} />
+                  <Heart className={`w-4 h-4 ${mounted && wishlistCount > 0 ? 'text-rose-500 fill-rose-500' : 'text-slate-500 dark:text-slate-400'}`} />
                   <span>আমার উইশলিস্ট (পছন্দের তালিকা)</span>
                 </div>
-                {wishlistCount > 0 && (
+                {mounted && wishlistCount > 0 && (
                   <span className="bg-rose-100 dark:bg-rose-950/80 text-rose-800 dark:text-rose-300 text-xs font-bold px-2 py-0.5 rounded-full border border-rose-200 dark:border-rose-800">
                     {wishlistCount}টি
                   </span>
