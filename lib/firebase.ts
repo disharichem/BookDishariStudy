@@ -8,6 +8,7 @@ import {
   User,
 } from 'firebase/auth';
 import {
+  initializeFirestore,
   getFirestore,
   doc,
   getDocFromServer,
@@ -18,8 +19,20 @@ import firebaseConfig from '@/firebase-applet-config.json';
 // Initialize Firebase App singleton
 const app = !getApps().length ? initializeApp(firebaseConfig) : getApp();
 
-// CRITICAL: Initialize Firestore with firestoreDatabaseId as required by AI Studio Firebase integration
-export const db = getFirestore(app, firebaseConfig.firestoreDatabaseId);
+// CRITICAL: Initialize Firestore with firestoreDatabaseId and auto-detect long-polling to prevent connection drops in iframes/sandboxes
+export const db = (() => {
+  try {
+    return initializeFirestore(
+      app,
+      {
+        experimentalAutoDetectLongPolling: true,
+      },
+      firebaseConfig.firestoreDatabaseId
+    );
+  } catch {
+    return getFirestore(app, firebaseConfig.firestoreDatabaseId);
+  }
+})();
 export const storage = getStorage(app);
 export const auth = getAuth(app);
 export const googleProvider = new GoogleAuthProvider();
@@ -80,11 +93,23 @@ export function handleFirestoreError(
 // Test connection on boot
 export async function testFirestoreConnection() {
   try {
+    if (typeof window !== 'undefined' && typeof navigator !== 'undefined' && !navigator.onLine) {
+      return;
+    }
     // Graceful connectivity ping on public products path
     await getDocFromServer(doc(db, 'products', 'connection_probe'));
-  } catch (error) {
-    if (error instanceof Error && error.message.includes('the client is offline')) {
-      console.warn('Firebase Firestore is offline. Please verify network or config.');
+  } catch (error: any) {
+    if (
+      error?.code === 'unavailable' ||
+      (error instanceof Error &&
+        (error.message.includes('the client is offline') ||
+         error.message.includes('unavailable') ||
+         error.message.includes('Could not reach Cloud Firestore backend') ||
+         error.message.includes('operation could not be completed')))
+    ) {
+      console.info('Firestore initialized in offline/cached mode until backend channel is connected.');
+    } else {
+      console.warn('Firestore connection check notice:', error?.message || error);
     }
   }
 }

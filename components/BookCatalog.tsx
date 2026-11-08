@@ -3,9 +3,10 @@
 import React, { useState, useMemo } from 'react';
 import { Product, ChemistryBranch } from '@/types';
 import { BookCard } from './BookCard';
-import { Search, BookOpen, Download, Layers, Sparkles, X, ArrowUpDown, RotateCcw } from 'lucide-react';
+import { Search, BookOpen, Download, Layers, Sparkles, X, ArrowUpDown, RotateCcw, SlidersHorizontal } from 'lucide-react';
 import { calculateCommissionPercent, toBengaliNumber } from '@/lib/utils';
 import { getProductRatingSummary } from '@/lib/ratings';
+import { FilterModal, FilterState, defaultFilterState } from './FilterModal';
 
 export type SortOption = 
   | 'default'
@@ -48,6 +49,20 @@ export const BookCatalog: React.FC<BookCatalogProps> = ({
 }) => {
   const [searchQuery, setSearchQuery] = useState('');
   const [priceSort, setPriceSort] = useState<SortOption>('default');
+  const [isFilterModalOpen, setIsFilterModalOpen] = useState(false);
+  const [filters, setFilters] = useState<FilterState>(defaultFilterState);
+
+  const activeFilterCount = useMemo(() => {
+    let count = 0;
+    if (filters.inStockOnly) count++;
+    if (filters.ebookOnly) count++;
+    if (filters.selectedAuthors.length > 0) count += filters.selectedAuthors.length;
+    if (filters.selectedCategories.length > 0) count += filters.selectedCategories.length;
+    if (filters.selectedRatings.length > 0) count += filters.selectedRatings.length;
+    if (filters.priceMin > defaultFilterState.priceMin || filters.priceMax < defaultFilterState.priceMax) count++;
+    if (filters.discountMin > 0) count++;
+    return count;
+  }, [filters]);
 
   // Listen to global header searchbox queries
   React.useEffect(() => {
@@ -80,6 +95,21 @@ export const BookCatalog: React.FC<BookCatalogProps> = ({
         if (activeCategory === 'printed' && product.format !== 'printed') return false;
         if (activeCategory === 'pdf' && product.format !== 'pdf') return false;
         if (activeCategory === 'combo' && product.format !== 'combo') return false;
+      }
+
+      // Advanced FilterModal criteria
+      if (filters.inStockOnly && product.availabilityStatus !== 'in_stock') return false;
+      if (filters.ebookOnly && product.format !== 'pdf') return false;
+      if (filters.selectedAuthors.length > 0 && product.author && !filters.selectedAuthors.includes(product.author)) return false;
+      if (filters.selectedCategories.length > 0 && !filters.selectedCategories.includes(product.format)) return false;
+      if (filters.selectedRatings.length > 0) {
+        const avg = Math.round(getProductRatingSummary(product.id).averageRating);
+        if (!filters.selectedRatings.includes(avg)) return false;
+      }
+      if (product.price < filters.priceMin || product.price > filters.priceMax) return false;
+      if (filters.discountMin > 0) {
+        const disc = calculateCommissionPercent(product.price, product.originalPrice) || 0;
+        if (disc < filters.discountMin) return false;
       }
 
       // Search query filter
@@ -136,7 +166,7 @@ export const BookCatalog: React.FC<BookCatalogProps> = ({
     }
 
     return result;
-  }, [products, selectedBranch, activeCategory, searchQuery, priceSort]);
+  }, [products, selectedBranch, activeCategory, searchQuery, priceSort, filters]);
 
   const clearSearch = () => {
     setSearchQuery('');
@@ -144,6 +174,7 @@ export const BookCatalog: React.FC<BookCatalogProps> = ({
 
   const resetAllFilters = () => {
     setPriceSort('default');
+    setFilters(defaultFilterState);
   };
 
   return (
@@ -238,8 +269,31 @@ export const BookCatalog: React.FC<BookCatalogProps> = ({
         <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-2.5 sm:p-3 shadow-2xs transition-colors">
           <div className="flex flex-row items-center justify-between gap-2 overflow-x-auto scrollbar-none">
             
-            {/* Left: সাজান ড্রপডাউন */}
+            {/* Left: ফিল্টার বাটন ও সাজান ড্রপডাউন */}
             <div className="flex items-center gap-2 shrink-0">
+              
+              {/* ফিল্টার বাটন (সাজান এর বামে) */}
+              <button
+                type="button"
+                onClick={() => setIsFilterModalOpen(true)}
+                className={`inline-flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-semibold border transition-all cursor-pointer shadow-2xs shrink-0 ${
+                  activeFilterCount > 0
+                    ? 'bg-cyan-600 text-white border-cyan-700 hover:bg-cyan-700 shadow-xs'
+                    : 'bg-slate-50 dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-800 dark:text-slate-100 border-slate-200 dark:border-slate-700'
+                }`}
+                title="বই ও নোটস ফিল্টার করুন"
+              >
+                <SlidersHorizontal className={`w-3.5 h-3.5 ${activeFilterCount > 0 ? 'text-white' : 'text-cyan-600 dark:text-cyan-400'}`} />
+                <span>ফিল্টার</span>
+                {activeFilterCount > 0 && (
+                  <span className="w-4 h-4 rounded-full bg-white text-cyan-800 text-[10px] flex items-center justify-center font-bold">
+                    {toBengaliNumber(activeFilterCount)}
+                  </span>
+                )}
+              </button>
+
+              <span className="h-4 w-px bg-slate-200 dark:bg-slate-700 mx-0.5" />
+
               <span className="text-xs font-semibold text-slate-500 dark:text-slate-400 flex items-center gap-1">
                 <ArrowUpDown className="w-3.5 h-3.5 text-cyan-600 dark:text-cyan-400" />
                 <span>সাজান:</span>
@@ -265,8 +319,8 @@ export const BookCatalog: React.FC<BookCatalogProps> = ({
                 <ArrowUpDown className="w-3.5 h-3.5 text-slate-400 dark:text-slate-400 absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
               </div>
 
-              {/* সর্ট রিসেট বাটন */}
-              {priceSort !== 'default' && (
+              {/* সর্ট ও ফিল্টার রিসেট বাটন */}
+              {(priceSort !== 'default' || activeFilterCount > 0) && (
                 <button
                   type="button"
                   onClick={resetAllFilters}
@@ -343,6 +397,16 @@ export const BookCatalog: React.FC<BookCatalogProps> = ({
           </div>
         )}
 
+
+        {/* Advanced Filter Modal */}
+        <FilterModal
+          isOpen={isFilterModalOpen}
+          onClose={() => setIsFilterModalOpen(false)}
+          filters={filters}
+          onApplyFilters={(newFilters) => setFilters(newFilters)}
+          onResetFilters={() => setFilters(defaultFilterState)}
+          totalResultsCount={filteredProducts.length}
+        />
 
       </div>
     </section>

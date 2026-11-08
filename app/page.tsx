@@ -23,6 +23,7 @@ import { ContactUs } from '@/components/ContactUs';
 import { StudentReviews } from '@/components/StudentReviews';
 import { Footer } from '@/components/Footer';
 import { BestSellers } from '@/components/BestSellers';
+import { BookCatalog } from '@/components/BookCatalog';
 import { PriceAlertToast } from '@/components/PriceAlertToast';
 import { RecentlyViewed } from '@/components/RecentlyViewed';
 import { addRecentlyViewed } from '@/lib/recentlyViewed';
@@ -31,9 +32,35 @@ import { useWishlist } from '@/lib/wishlistStore';
 import { useRecentOrders } from '@/lib/recentOrders';
 import { Check, CheckCircle2 } from 'lucide-react';
 
+function getInitialProducts(): Product[] {
+  if (typeof window === 'undefined') return PRODUCTS;
+  try {
+    const raw = localStorage.getItem('dishari_custom_products');
+    if (raw) {
+      const customMap = JSON.parse(raw) as Record<string, Product>;
+      const customList = Object.values(customMap);
+      if (customList.length > 0) {
+        const copy = [...PRODUCTS];
+        customList.forEach((cp) => {
+          const idx = copy.findIndex((p) => p.id === cp.id);
+          if (idx !== -1) {
+            copy[idx] = { ...copy[idx], ...cp };
+          } else {
+            copy.push(cp);
+          }
+        });
+        return copy;
+      }
+    }
+  } catch (e) {
+    console.warn('Local custom products initial load notice:', e);
+  }
+  return PRODUCTS;
+}
+
 export default function HomePage() {
   const router = useRouter();
-  const [products, setProducts] = useState<Product[]>(PRODUCTS);
+  const [products, setProducts] = useState<Product[]>(getInitialProducts);
   const [activeCategory, setActiveCategory] = useState<'all' | 'printed' | 'pdf' | 'combo'>('all');
   const [selectedBranch, setSelectedBranch] = useState<ChemistryBranch>('all');
   
@@ -91,11 +118,10 @@ export default function HomePage() {
     }
   };
 
-  // Test Firestore connection on boot and sync products if any customized in Firestore
+  // Test Firestore connection on boot and listen to real-time updates from Firestore
   useEffect(() => {
     testFirestoreConnection();
 
-    // Listen to customized products from Firestore
     try {
       const unsub = onSnapshot(
         collection(db, 'products'),
@@ -111,6 +137,32 @@ export default function HomePage() {
                   ...data,
                   id: d.id,
                 } as Product);
+              } else {
+                remoteProducts.push({
+                  id: d.id,
+                  sku: data.sku || `DC-PROD-${d.id}`,
+                  titleBn: data.titleBn || 'নতুন বই / নোট',
+                  titleEn: data.titleEn || 'New Book/Note',
+                  subtitleBn: data.subtitleBn || '',
+                  format: data.format || 'printed',
+                  price: data.price || 0,
+                  originalPrice: data.originalPrice,
+                  isSamplePrice: Boolean(data.isSamplePrice),
+                  availabilityStatus: data.availabilityStatus || 'in_stock',
+                  stockQuantity: data.stockQuantity ?? 50,
+                  inventoryTracking: data.format !== 'pdf',
+                  coverImage: data.coverImage || '/images/book_ssc_chemistry_guide_1793290222060.jpg',
+                  description: data.description || '',
+                  highlights: ['এসএসসি প্রস্তুতি সহায়ক', 'অধ্যায়ভিত্তিক সারসংক্ষেপ ও প্রশ্নাবলি'],
+                  chapters: [],
+                  samplePages: [],
+                  isPublished: data.isPublished !== false,
+                  hasSecurePdf: Boolean(data.hasSecurePdf),
+                  pdfFileRef: data.pdfFileRef,
+                  pdfFileName: data.pdfFileName,
+                  pdfFileSizeMb: data.pdfFileSizeMb,
+                  ...data,
+                } as Product);
               }
             });
             if (remoteProducts.length > 0) {
@@ -119,7 +171,7 @@ export default function HomePage() {
                 remoteProducts.forEach((rp) => {
                   const idx = updated.findIndex((u) => u.id === rp.id);
                   if (idx !== -1) {
-                    updated[idx] = rp;
+                    updated[idx] = { ...updated[idx], ...rp };
                   } else {
                     updated.push(rp);
                   }
@@ -137,7 +189,6 @@ export default function HomePage() {
     } catch (e) {
       console.warn('Firestore products listener fallback:', e);
     }
-
   }, []);
 
   const showToast = (msg: string) => {
@@ -237,7 +288,7 @@ export default function HomePage() {
         onOpenWishlist={() => setIsWishlistOpen(true)}
         onOpenTracking={() => setIsTrackingOpen(true)}
         onOpenMyPdfs={() => setIsMyPdfsOpen(true)}
-        onOpenAdminManager={() => setIsAdminOpen(true)}
+        onOpenAdminManager={() => router.push('/admin')}
         onFilterChange={(cat) => {
           setSelectedProduct(null);
           setActiveCategory(cat);
@@ -296,6 +347,21 @@ export default function HomePage() {
               onOpenSampleModal={handleOpenSampleModal}
             />
 
+            {/* SSC Chemistry Books & Notes Catalog (এসএসসি রসায়ন বই ও ডিজিটাল নোটস) */}
+            <BookCatalog
+              products={products}
+              wishlistIds={wishlistIds}
+              onToggleWishlist={handleToggleWishlist}
+              activeCategory={activeCategory}
+              onCategoryChange={setActiveCategory}
+              selectedBranch={selectedBranch}
+              onSelectBranch={setSelectedBranch}
+              onOpenSample={handleOpenSampleModal}
+              onViewDetails={handleOpenProduct}
+              onDirectOrder={handleDirectOrder}
+              onAddToCart={handleAddToCart}
+            />
+
             {/* 3 Step Ordering Guide */}
             <OrderInstructions />
 
@@ -318,7 +384,7 @@ export default function HomePage() {
       <Footer
         onOpenTracking={() => setIsTrackingOpen(true)}
         onOpenMyPdfs={() => setIsMyPdfsOpen(true)}
-        onOpenAdminManager={() => setIsAdminOpen(true)}
+        onOpenAdminManager={() => router.push('/admin')}
         onFilterChange={(cat) => {
           setSelectedProduct(null);
           setActiveCategory(cat);
@@ -391,11 +457,17 @@ export default function HomePage() {
         onClose={() => setIsAdminOpen(false)}
         products={products}
         onUpdateProduct={(updated) => {
-          setProducts((prev) => prev.map((p) => (p.id === updated.id ? updated : p)));
+          setProducts((prev) => {
+            const exists = prev.some((p) => p.id === updated.id);
+            if (exists) {
+              return prev.map((p) => (p.id === updated.id ? updated : p));
+            }
+            return [updated, ...prev];
+          });
           if (selectedProduct && selectedProduct.id === updated.id) {
             setSelectedProduct(updated);
           }
-          showToast(`"${updated.titleBn}" ডাটা সফলভাবে আপডেট হয়েছে!`);
+          showToast(`"${updated.titleBn}" ডাটা সফলভাবে সংরক্ষিত হয়েছে!`);
         }}
       />
 

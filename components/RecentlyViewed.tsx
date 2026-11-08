@@ -16,8 +16,6 @@ import {
   ShoppingBag, 
   Eye, 
   X, 
-  ChevronLeft, 
-  ChevronRight,
   MoveHorizontal
 } from 'lucide-react';
 
@@ -36,43 +34,7 @@ export const RecentlyViewed: React.FC<RecentlyViewedProps> = ({
 }) => {
   const mounted = useMounted();
   const sliderRef = useRef<HTMLDivElement>(null);
-  const [canScrollLeft, setCanScrollLeft] = useState(false);
-  const [canScrollRight, setCanScrollRight] = useState(false);
   const { recentProducts, clearHistory, removeProduct, isReady } = useRecentlyViewed(products);
-
-  // Monitor scroll position for Left/Right slide navigation
-  const checkScrollState = useCallback(() => {
-    if (sliderRef.current) {
-      const { scrollLeft, scrollWidth, clientWidth } = sliderRef.current;
-      setCanScrollLeft(scrollLeft > 10);
-      setCanScrollRight(scrollLeft + clientWidth < scrollWidth - 10);
-    }
-  }, []);
-
-  useEffect(() => {
-    checkScrollState();
-    const el = sliderRef.current;
-    if (!el) return;
-
-    el.addEventListener('scroll', checkScrollState, { passive: true });
-    window.addEventListener('resize', checkScrollState);
-    return () => {
-      el.removeEventListener('scroll', checkScrollState);
-      window.removeEventListener('resize', checkScrollState);
-    };
-  }, [checkScrollState, recentProducts.length]);
-
-  const handleScrollLeft = () => {
-    if (sliderRef.current) {
-      sliderRef.current.scrollBy({ left: -280, behavior: 'smooth' });
-    }
-  };
-
-  const handleScrollRight = () => {
-    if (sliderRef.current) {
-      sliderRef.current.scrollBy({ left: 280, behavior: 'smooth' });
-    }
-  };
 
   // If not hydrated yet or no books viewed, don't show the section
   if (!mounted || !isReady || recentProducts.length === 0) {
@@ -104,35 +66,11 @@ export const RecentlyViewed: React.FC<RecentlyViewedProps> = ({
             </div>
           </div>
 
-          {/* Action buttons & Slide Navigation */}
+          {/* Action button */}
           <div className="flex items-center gap-2">
-            {/* Slide Navigation Buttons */}
-            <div className="flex items-center gap-1.5 bg-white dark:bg-slate-800 p-1 rounded-xl border border-slate-200 dark:border-slate-700 shadow-2xs">
-              <button
-                type="button"
-                onClick={handleScrollLeft}
-                disabled={!canScrollLeft}
-                aria-label="বামে স্লাইড করুন"
-                title="পূর্বের বইগুলো দেখুন"
-                className="w-8 h-8 rounded-lg flex items-center justify-center text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700 disabled:opacity-30 disabled:pointer-events-none transition-all cursor-pointer"
-              >
-                <ChevronLeft className="w-4 h-4" />
-              </button>
-              <button
-                type="button"
-                onClick={handleScrollRight}
-                disabled={!canScrollRight}
-                aria-label="ডান দিক থেকে বামে স্লাইড করুন"
-                title="পরবর্তী আরও বই দেখুন"
-                className="w-8 h-8 rounded-lg flex items-center justify-center text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700 disabled:opacity-30 disabled:pointer-events-none transition-all cursor-pointer"
-              >
-                <ChevronRight className="w-4 h-4" />
-              </button>
-            </div>
-
             <button
               onClick={clearHistory}
-              className="inline-flex items-center gap-1.5 text-xs font-medium text-slate-500 hover:text-rose-600 dark:text-slate-400 dark:hover:text-rose-400 px-3 py-1.5 rounded-xl border border-slate-200 dark:border-slate-800 hover:border-rose-200 dark:hover:border-rose-900/50 bg-white dark:bg-slate-800/80 transition-colors shadow-2xs"
+              className="inline-flex items-center gap-1.5 text-xs font-medium text-slate-500 hover:text-rose-600 dark:text-slate-400 dark:hover:text-rose-400 px-3 py-1.5 rounded-xl border border-slate-200 dark:border-slate-800 hover:border-rose-200 dark:hover:border-rose-900/50 bg-white dark:bg-slate-800/80 transition-colors shadow-2xs cursor-pointer"
               title="সম্প্রতি দেখার তালিকা মুছে ফেলুন"
             >
               <Trash2 className="w-3.5 h-3.5" />
@@ -143,18 +81,6 @@ export const RecentlyViewed: React.FC<RecentlyViewedProps> = ({
 
         {/* Single Row Horizontal Slider (বইগুলো একই সারিতে দেখাবে যা ডান দিক থেকে বামে স্লাইড করা যাবে) */}
         <div className="relative group/recent-slider">
-          
-          {/* Floating Left Arrow (Desktop) */}
-          {canScrollLeft && (
-            <button
-              type="button"
-              onClick={handleScrollLeft}
-              aria-label="বামে স্ক্রোল করুন"
-              className="hidden md:flex absolute -left-3.5 top-1/2 -translate-y-1/2 z-20 w-9 h-9 rounded-full bg-white/95 dark:bg-slate-900/95 border border-slate-200 dark:border-slate-700 shadow-lg items-center justify-center text-slate-800 dark:text-slate-100 hover:bg-cyan-600 hover:text-white dark:hover:bg-cyan-600 hover:border-cyan-600 transition-all cursor-pointer backdrop-blur-xs active:scale-95"
-            >
-              <ChevronLeft className="w-4 h-4" />
-            </button>
-          )}
 
           {/* Horizontal Track */}
           <div
@@ -286,18 +212,6 @@ export const RecentlyViewed: React.FC<RecentlyViewedProps> = ({
               );
             })}
           </div>
-
-          {/* Floating Right Arrow (Desktop) */}
-          {canScrollRight && (
-            <button
-              type="button"
-              onClick={handleScrollRight}
-              aria-label="ডান দিক থেকে বামে স্লাইড করুন"
-              className="hidden md:flex absolute -right-3.5 top-1/2 -translate-y-1/2 z-20 w-9 h-9 rounded-full bg-white/95 dark:bg-slate-900/95 border border-slate-200 dark:border-slate-700 shadow-lg items-center justify-center text-slate-800 dark:text-slate-100 hover:bg-cyan-600 hover:text-white dark:hover:bg-cyan-600 hover:border-cyan-600 transition-all cursor-pointer backdrop-blur-xs active:scale-95"
-            >
-              <ChevronRight className="w-4 h-4" />
-            </button>
-          )}
 
         </div>
 

@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useRef, useState, useEffect, useCallback, useMemo } from 'react';
+import React, { useRef, useMemo } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
 import { useMounted } from '@/lib/useMounted';
@@ -11,8 +11,6 @@ import {
   Flame, 
   Star, 
   ShoppingCart, 
-  ChevronLeft, 
-  ChevronRight, 
   BookOpen, 
   Download, 
   Layers, 
@@ -54,8 +52,6 @@ export const BestSellers: React.FC<BestSellersProps> = ({
 }) => {
   const mounted = useMounted();
   const sliderRef = useRef<HTMLDivElement>(null);
-  const [canScrollLeft, setCanScrollLeft] = useState(false);
-  const [canScrollRight, setCanScrollRight] = useState(true);
 
   // Pick and sort all bestsellers based on priority order (up to 8 items in single row)
   const bestSellerProducts = useMemo(() => {
@@ -89,42 +85,8 @@ export const BestSellers: React.FC<BestSellersProps> = ({
     return sorted;
   }, [products]);
 
-  // Check scroll position to toggle arrow buttons
-  const checkScrollState = useCallback(() => {
-    if (sliderRef.current) {
-      const { scrollLeft, scrollWidth, clientWidth } = sliderRef.current;
-      setCanScrollLeft(scrollLeft > 10);
-      setCanScrollRight(scrollLeft + clientWidth < scrollWidth - 10);
-    }
-  }, []);
-
-  useEffect(() => {
-    checkScrollState();
-    const el = sliderRef.current;
-    if (!el) return;
-
-    el.addEventListener('scroll', checkScrollState, { passive: true });
-    window.addEventListener('resize', checkScrollState);
-    return () => {
-      el.removeEventListener('scroll', checkScrollState);
-      window.removeEventListener('resize', checkScrollState);
-    };
-  }, [checkScrollState, bestSellerProducts.length]);
-
-  const handleScrollLeft = () => {
-    if (sliderRef.current) {
-      sliderRef.current.scrollBy({ left: -320, behavior: 'smooth' });
-    }
-  };
-
-  const handleScrollRight = () => {
-    if (sliderRef.current) {
-      sliderRef.current.scrollBy({ left: 320, behavior: 'smooth' });
-    }
-  };
-
   return (
-    <section id="catalog" className="py-12 sm:py-16 bg-white dark:bg-slate-950 border-b border-slate-200 dark:border-slate-800 transition-colors duration-200 overflow-hidden scroll-mt-14">
+    <section id="bestsellers" className="py-12 sm:py-16 bg-white dark:bg-slate-950 border-b border-slate-200 dark:border-slate-800 transition-colors duration-200 overflow-hidden scroll-mt-14">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-6">
         
         {/* Section Header */}
@@ -141,49 +103,10 @@ export const BestSellers: React.FC<BestSellersProps> = ({
               এসএসসি রসায়ন পরীক্ষার সেরা প্রস্তুতি নিশ্চিত করতে বিজ্ঞান বিভাগের শিক্ষার্থীদের সবচেয়ে বেশি পঠিত ও শীর্ষ রেটেড প্রকাশনা।
             </p>
           </div>
-
-          {/* Right Action Controls: Carousel arrows */}
-          <div className="flex items-center gap-3 self-start md:self-auto shrink-0">
-            {/* Slide Navigation Buttons */}
-            <div className="flex items-center gap-2 bg-slate-50 dark:bg-slate-900 p-1 rounded-xl border border-slate-200 dark:border-slate-800 shadow-2xs">
-              <button
-                type="button"
-                onClick={handleScrollLeft}
-                disabled={!canScrollLeft}
-                aria-label="বামে স্লাইড করুন"
-                title="পূর্বের বইসমূহ"
-                className="w-9 h-9 rounded-lg flex items-center justify-center text-slate-700 dark:text-slate-200 hover:bg-white dark:hover:bg-slate-800 hover:text-cyan-600 dark:hover:text-cyan-400 disabled:opacity-30 disabled:pointer-events-none transition-all cursor-pointer shadow-2xs"
-              >
-                <ChevronLeft className="w-5 h-5" />
-              </button>
-              <button
-                type="button"
-                onClick={handleScrollRight}
-                disabled={!canScrollRight}
-                aria-label="ডানে স্লাইড করে আরো বই দেখুন"
-                title="পরবর্তী বইসমূহ"
-                className="w-9 h-9 rounded-lg flex items-center justify-center text-slate-700 dark:text-slate-200 hover:bg-white dark:hover:bg-slate-800 hover:text-cyan-600 dark:hover:text-cyan-400 disabled:opacity-30 disabled:pointer-events-none transition-all cursor-pointer shadow-2xs"
-              >
-                <ChevronRight className="w-5 h-5" />
-              </button>
-            </div>
-          </div>
         </div>
 
-        {/* Single Row Horizontal Carousel Slider with Relative Floating Buttons */}
+        {/* Single Row Horizontal Carousel Slider */}
         <div className="relative group/slider">
-          
-          {/* Floating Left Arrow (Desktop) */}
-          {canScrollLeft && (
-            <button
-              type="button"
-              onClick={handleScrollLeft}
-              aria-label="বামে স্লাইড করুন"
-              className="hidden md:flex absolute -left-4 top-1/2 -translate-y-1/2 z-20 w-11 h-11 rounded-full bg-white/95 dark:bg-slate-900/95 border border-slate-200 dark:border-slate-700 shadow-xl items-center justify-center text-slate-800 dark:text-slate-100 hover:bg-cyan-600 hover:text-white dark:hover:bg-cyan-600 hover:border-cyan-600 transition-all cursor-pointer backdrop-blur-xs active:scale-95"
-            >
-              <ChevronLeft className="w-5 h-5" />
-            </button>
-          )}
 
           {/* Horizontal Track (সব বই একই সারিতে, বামে স্লাইড করলে ডান থেকে আরো বই বের হয়) */}
           <div
@@ -363,18 +286,6 @@ export const BestSellers: React.FC<BestSellersProps> = ({
               );
             })}
           </div>
-
-          {/* Floating Right Arrow (Desktop) */}
-          {canScrollRight && (
-            <button
-              type="button"
-              onClick={handleScrollRight}
-              aria-label="ডানে স্লাইড করে আরো বই দেখুন"
-              className="hidden md:flex absolute -right-4 top-1/2 -translate-y-1/2 z-20 w-11 h-11 rounded-full bg-white/95 dark:bg-slate-900/95 border border-slate-200 dark:border-slate-700 shadow-xl items-center justify-center text-slate-800 dark:text-slate-100 hover:bg-cyan-600 hover:text-white dark:hover:bg-cyan-600 hover:border-cyan-600 transition-all cursor-pointer backdrop-blur-xs active:scale-95"
-            >
-              <ChevronRight className="w-5 h-5" />
-            </button>
-          )}
 
         </div>
 

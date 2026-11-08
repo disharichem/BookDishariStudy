@@ -79,6 +79,32 @@ export default function ProductDetailPage() {
                   ...data,
                   id: d.id,
                 } as Product);
+              } else {
+                remoteProducts.push({
+                  id: d.id,
+                  sku: data.sku || `DC-PROD-${d.id}`,
+                  titleBn: data.titleBn || 'নতুন বই / নোট',
+                  titleEn: data.titleEn || 'New Book/Note',
+                  subtitleBn: data.subtitleBn || '',
+                  format: data.format || 'printed',
+                  price: data.price || 0,
+                  originalPrice: data.originalPrice,
+                  isSamplePrice: Boolean(data.isSamplePrice),
+                  availabilityStatus: data.availabilityStatus || 'in_stock',
+                  stockQuantity: data.stockQuantity ?? 50,
+                  inventoryTracking: data.format !== 'pdf',
+                  coverImage: data.coverImage || '/images/book_ssc_chemistry_guide_1793290222060.jpg',
+                  description: data.description || '',
+                  highlights: ['এসএসসি প্রস্তুতি সহায়ক', 'অধ্যায়ভিত্তিক সারসংক্ষেপ ও প্রশ্নাবলি'],
+                  chapters: [],
+                  samplePages: [],
+                  isPublished: data.isPublished !== false,
+                  hasSecurePdf: Boolean(data.hasSecurePdf),
+                  pdfFileRef: data.pdfFileRef,
+                  pdfFileName: data.pdfFileName,
+                  pdfFileSizeMb: data.pdfFileSizeMb,
+                  ...data,
+                } as Product);
               }
             });
             if (remoteProducts.length > 0) {
@@ -202,7 +228,7 @@ export default function ProductDetailPage() {
         onOpenWishlist={() => setIsWishlistOpen(true)}
         onOpenTracking={() => setIsTrackingOpen(true)}
         onOpenMyPdfs={() => setIsMyPdfsOpen(true)}
-        onOpenAdminManager={() => setIsAdminOpen(true)}
+        onOpenAdminManager={() => router.push('/admin')}
         onFilterChange={() => {
           router.push('/#catalog');
         }}
@@ -254,7 +280,7 @@ export default function ProductDetailPage() {
       <Footer
         onOpenTracking={() => setIsTrackingOpen(true)}
         onOpenMyPdfs={() => setIsMyPdfsOpen(true)}
-        onOpenAdminManager={() => setIsAdminOpen(true)}
+        onOpenAdminManager={() => router.push('/admin')}
         onFilterChange={() => {
           router.push('/#catalog');
         }}
@@ -326,8 +352,14 @@ export default function ProductDetailPage() {
         onClose={() => setIsAdminOpen(false)}
         products={products}
         onUpdateProduct={(updated) => {
-          setProducts((prev) => prev.map((p) => (p.id === updated.id ? updated : p)));
-          showToast(`"${updated.titleBn}" ডাটা সফলভাবে আপডেট হয়েছে!`);
+          setProducts((prev) => {
+            const exists = prev.some((p) => p.id === updated.id);
+            if (exists) {
+              return prev.map((p) => (p.id === updated.id ? updated : p));
+            }
+            return [updated, ...prev];
+          });
+          showToast(`"${updated.titleBn}" ডাটা সফলভাবে সংরক্ষিত হয়েছে!`);
         }}
       />
 

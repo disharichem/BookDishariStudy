@@ -1,6 +1,7 @@
 'use client';
 
 import React from 'react';
+import Link from 'next/link';
 import { Atom, Heart, ShieldAlert } from 'lucide-react';
 
 interface FooterProps {
@@ -150,16 +151,14 @@ export const Footer: React.FC<FooterProps> = ({
                   যোগাযোগ ও সাপোর্ট
                 </button>
               </li>
-              {onOpenAdminManager && (
-                <li>
-                  <button
-                    onClick={onOpenAdminManager}
-                    className="hover:text-cyan-400 text-slate-400 transition-colors cursor-pointer"
-                  >
-                    অ্যাডমিন ও প্রোডাক্ট প্যানেল
-                  </button>
-                </li>
-              )}
+              <li>
+                <Link
+                  href="/admin"
+                  className="hover:text-cyan-400 text-slate-400 transition-colors inline-block"
+                >
+                  অ্যাডমিন ও প্রোডাক্ট ডাটা প্যানেল
+                </Link>
+              </li>
               <li>
                 <span className="text-slate-400">সহায়তা সেল: disharichem@gmail.com</span>
               </li>

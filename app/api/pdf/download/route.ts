@@ -257,12 +257,32 @@ export async function GET(req: NextRequest) {
     const safeTitle = (matchedItem.sku || matchedItem.productId).replace(/[^a-zA-Z0-9_-]/g, '_');
     const filename = `Dishari_Chemistry_${safeTitle}.pdf`;
 
-    const pdfBuffer = generateLicensedPdfBuffer(
-      matchedItem.titleBn,
-      order.customerName,
-      order.orderId,
-      matchedItem.sku || 'DC-PDF'
-    );
+    // Check if uploaded physical PDF exists on disk in uploads directory
+    let pdfBuffer: Buffer | Uint8Array | null = null;
+    try {
+      const fs = await import('fs/promises');
+      const path = await import('path');
+      const fsSync = await import('fs');
+      const uploadsDir = path.join(process.cwd(), 'public', 'uploads', 'pdfs', productId);
+      if (fsSync.existsSync(uploadsDir)) {
+        const files = await fs.readdir(uploadsDir);
+        const pdfFile = files.find((f) => f.toLowerCase().endsWith('.pdf'));
+        if (pdfFile) {
+          pdfBuffer = await fs.readFile(path.join(uploadsDir, pdfFile));
+        }
+      }
+    } catch (readErr) {
+      console.warn('Physical PDF check notice:', readErr);
+    }
+
+    if (!pdfBuffer) {
+      pdfBuffer = generateLicensedPdfBuffer(
+        matchedItem.titleBn,
+        order.customerName,
+        order.orderId,
+        matchedItem.sku || 'DC-PDF'
+      );
+    }
 
     return new Response(pdfBuffer as unknown as BodyInit, {
       status: 200,

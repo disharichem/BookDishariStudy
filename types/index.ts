@@ -67,6 +67,8 @@ export interface Product {
   samplePages: SamplePage[];
   isFeatured?: boolean;
   isPublished?: boolean;
+  createdAt?: string;
+  updatedAt?: string;
 }
 
 export interface CartItem {
